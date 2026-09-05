@@ -44,7 +44,10 @@ final class InvoicePdfGenerator
             'verdictChip' => $this->chipFor($matchRun?->status),
             'formatMoney' => $formatMoney,
             'formatQuantity' => $formatQuantity,
-            'generatedAt' => now()->format('d/m/Y \à H:i'),
+            // Pas d'echappement de lettre accentuee dans un motif `format()` :
+            // le caractere est multi-octets, la barre oblique n'en protegerait
+            // que le premier. Le mot de liaison vit donc dans le gabarit.
+            'generatedAt' => now()->format('d/m/Y H:i'),
             'generatedBy' => $generatedBy?->name,
         ])->setPaper('a4');
     }

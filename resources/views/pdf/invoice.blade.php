@@ -166,7 +166,7 @@
                 <td style="width: 50%;">
                     <span class="chip {{ $verdictChip }}">{{ $matchRun->status->label() }}</span>
                     <div class="muted" style="margin-top: 6px;">
-                        Execution n{{ chr(176) }}{{ $matchRun->id }} du
+                        Exécution n°{{ $matchRun->id }} du
                         {{ $matchRun->evaluated_at?->format('d/m/Y H:i') }}
                         — moteur v{{ $matchRun->engine_version }}
                     </div>
@@ -209,7 +209,7 @@
 @endif
 
 <div class="footer">
-    Document genere le {{ $generatedAt }}@if ($generatedBy) par {{ $generatedBy }}@endif —
+    Document généré le {{ $generatedAt }}@if ($generatedBy) par {{ $generatedBy }}@endif —
     piece interne de controle, non contractuelle.
 </div>
 
