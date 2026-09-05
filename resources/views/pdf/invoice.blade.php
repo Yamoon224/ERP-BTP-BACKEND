@@ -3,7 +3,7 @@
 
     Le document ne se contente pas de recopier la facture : il porte le verdict
     du rapprochement et le montant reellement autorise au paiement. C'est ce qui
-    en fait une piece utilisable en interne — une facture imprimee sans son
+    en fait une piece utilisable en interne - une facture imprimee sans son
     controle ne dit pas si elle est payable, et c'est precisement la question
     que se pose celui qui l'imprime.
 
@@ -77,14 +77,14 @@
 
 <div class="band">
     <h1>FACTURE {{ $invoice->reference }}</h1>
-    <p>ERP BTP — controle a 3 voies (bon de commande / bon de livraison / facture)</p>
+    <p>ERP BTP - controle a 3 voies (bon de commande / bon de livraison / facture)</p>
 </div>
 
 <table class="meta">
     <tr>
         <td>
             <div class="label">Fournisseur</div>
-            <div class="value">{{ $invoice->supplier?->name ?? '—' }}</div>
+            <div class="value">{{ $invoice->supplier?->name ?? '-' }}</div>
             <div class="muted">
                 {{ $invoice->supplier?->code }}
                 @if ($invoice->supplier?->vat_number)
@@ -94,9 +94,9 @@
         </td>
         <td>
             <div class="label">Bon de commande</div>
-            <div class="value">{{ $invoice->purchaseOrder?->reference ?? '—' }}</div>
+            <div class="value">{{ $invoice->purchaseOrder?->reference ?? '-' }}</div>
             <div class="muted">
-                Chantier : {{ $invoice->purchaseOrder?->project?->name ?? '—' }}
+                Chantier : {{ $invoice->purchaseOrder?->project?->name ?? '-' }}
             </div>
         </td>
     </tr>
@@ -105,7 +105,7 @@
             <div class="label">Date de facture</div>
             <div class="value">{{ $invoice->invoice_date->format('d/m/Y') }}</div>
             <div class="muted">
-                Echeance : {{ $invoice->due_date?->format('d/m/Y') ?? '—' }}
+                Echeance : {{ $invoice->due_date?->format('d/m/Y') ?? '-' }}
             </div>
         </td>
         <td>
@@ -168,7 +168,7 @@
                     <div class="muted" style="margin-top: 6px;">
                         Exécution n°{{ $matchRun->id }} du
                         {{ $matchRun->evaluated_at?->format('d/m/Y H:i') }}
-                        — moteur v{{ $matchRun->engine_version }}
+                        - moteur v{{ $matchRun->engine_version }}
                     </div>
                     <div class="muted">
                         Decidee par : {{ $matchRun->actor?->name ?? 'Moteur de rapprochement' }}
@@ -209,7 +209,7 @@
 @endif
 
 <div class="footer">
-    Document généré le {{ $generatedAt }}@if ($generatedBy) par {{ $generatedBy }}@endif —
+    Document généré le {{ $generatedAt }}@if ($generatedBy) par {{ $generatedBy }}@endif -
     piece interne de controle, non contractuelle.
 </div>
 

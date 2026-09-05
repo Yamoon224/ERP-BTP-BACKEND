@@ -1,7 +1,7 @@
 openapi: 3.0.3
 
 info:
-  title: ERP BTP — API de rapprochement à 3 voies
+  title: ERP BTP - API de rapprochement à 3 voies
   version: "1.0.0"
   description: |
     API du moteur de rapprochement à 3 voies (bon de commande / bon de livraison /
@@ -17,15 +17,15 @@ info:
     3. un **prix unitaire** conforme au bon de commande, dans la tolérance configurée.
 
     Toute portion non couverte n'ouvre aucun droit à paiement. Tout écart hors
-    tolérance est **signalé pour arbitrage humain** — jamais accepté ni rejeté
+    tolérance est **signalé pour arbitrage humain** - jamais accepté ni rejeté
     silencieusement.
 
     ## Traçabilité
 
     Chaque décision produit une exécution (`match_run`) immuable qui archive
     **qui** a décidé (moteur ou utilisateur nommé), **quand**, avec quelle
-    **version du moteur**, quelles **tolérances**, et — au niveau de chaque
-    ligne — la **preuve chiffrée** (`evidence`) ayant servi au calcul.
+    **version du moteur**, quelles **tolérances**, et - au niveau de chaque
+    ligne - la **preuve chiffrée** (`evidence`) ayant servi au calcul.
     Rejouer un rapprochement crée une nouvelle exécution ; aucune n'est
     jamais écrasée.
 
@@ -65,9 +65,9 @@ tags:
   - name: Référentiel
     description: Fournisseurs et chantiers.
   - name: Bons de commande
-    description: Engagement d'achat — la référence en quantité et en prix.
+    description: Engagement d'achat - la référence en quantité et en prix.
   - name: Bons de livraison
-    description: Réception physique — la preuve que la marchandise existe.
+    description: Réception physique - la preuve que la marchandise existe.
   - name: Factures
     description: Créances fournisseurs, rapprochées dès leur soumission.
   - name: Rapprochement
@@ -172,7 +172,7 @@ paths:
       summary: Modifier ses propres informations
       description: |
         Aucune permission requise : la route n'agit que sur l'appelant. Les
-        rôles ne sont volontairement pas acceptés ici — personne ne s'auto-promeut.
+        rôles ne sont volontairement pas acceptés ici - personne ne s'auto-promeut.
       requestBody:
         required: true
         content:
@@ -327,7 +327,7 @@ paths:
 
         Deux refus métier, tous deux en 409 : supprimer son propre compte
         (`cannot_delete_self`) et supprimer le dernier administrateur
-        (`last_administrator`) — l'application deviendrait inadministrable.
+        (`last_administrator`) - l'application deviendrait inadministrable.
       responses:
         "204": { description: Compte supprimé. }
         "401": { $ref: "#/components/responses/Unauthenticated" }
@@ -862,14 +862,14 @@ paths:
         au paiement (`payment_authorization`).
 
         Deux champs sont volontairement **refusés en entrée** :
-        - `supplier_id`, déduit du bon de commande — sinon la comparaison des
+        - `supplier_id`, déduit du bon de commande - sinon la comparaison des
           fournisseurs porterait sur une donnée choisie par l'émetteur ;
-        - `total_amount`, recalculé depuis les lignes — un en-tête qui annonce
+        - `total_amount`, recalculé depuis les lignes - un en-tête qui annonce
           un montant différent de la somme de ses lignes est le scénario de
           fraude le plus banal.
 
         Une ligne peut être envoyée **sans** `purchase_order_line_id` : elle est
-        acceptée puis signalée comme écart, plutôt que rejetée à la saisie — une
+        acceptée puis signalée comme écart, plutôt que rejetée à la saisie - une
         fraude refusée à la porte ne laisse aucune trace.
       requestBody:
         required: true
@@ -889,8 +889,8 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
           description: |
-            Référence déjà soumise pour ce fournisseur (`duplicate_invoice`) —
-            barrière anti-double paiement — ou bon de commande fermé
+            Référence déjà soumise pour ce fournisseur (`duplicate_invoice`) -
+            barrière anti-double paiement - ou bon de commande fermé
             (`purchase_order_not_open`).
           content:
             application/json:
@@ -965,7 +965,7 @@ paths:
         Le document porte la facture **et** le verdict de son rapprochement :
         montant autorisé au paiement, montant non couvert, nombre d'écarts
         ouverts. Une facture imprimée sans son contrôle ne dit pas si elle est
-        payable — or c'est la question que se pose celui qui l'imprime.
+        payable - or c'est la question que se pose celui qui l'imprime.
 
         Le fichier est produit à la volée, jamais stocké : il est intégralement
         dérivé de l'état courant, et l'archiver ferait exister deux vérités dont
@@ -992,7 +992,7 @@ paths:
         La devise n'est pas un détail d'affichage : c'est l'unité dans laquelle
         le prix facturé est confronté au prix commandé, et donc celle du montant
         autorisé au paiement. Le changement **rejoue donc le rapprochement** et
-        produit une nouvelle exécution — la réponse porte déjà le nouveau
+        produit une nouvelle exécution - la réponse porte déjà le nouveau
         verdict.
 
         Les montants des lignes ne sont pas convertis : corriger la devise
@@ -1198,7 +1198,7 @@ paths:
       tags: [Écarts]
       summary: Arbitrer un écart
       description: |
-        Permission requise : `matching.review` — la plus sensible du système,
+        Permission requise : `matching.review` - la plus sensible du système,
         c'est le seul geste humain capable de débloquer un paiement.
 
         - **`approved`** : l'écart est mémorisé comme dérogation et le
@@ -1214,7 +1214,7 @@ paths:
         ligne hors commande) continuent de bloquer même après un avis
         favorable : voir `is_overridable`.
 
-        Le motif (`note`) est **obligatoire** — un arbitrage sans justification
+        Le motif (`note`) est **obligatoire** - un arbitrage sans justification
         est intraçable a posteriori.
       requestBody:
         required: true
@@ -1550,7 +1550,7 @@ paths:
         fait en **ajoutant** une ligne, jamais en modifiant la précédente :
         c'est la superposition des dates d'effet qui permet de rejouer à
         l'identique un rapprochement ancien. La source `fixed_peg` est refusée
-        en saisie — une parité réglementaire n'est pas une cotation.
+        en saisie - une parité réglementaire n'est pas une cotation.
       requestBody:
         required: true
         content:
@@ -1650,7 +1650,7 @@ paths:
         Permission requise : `audit.view`.
 
         Qui a changé quoi, quand, sur quel objet. **Lecture seule sans
-        exception** — il n'existe ni création, ni modification, ni purge par
+        exception** - il n'existe ni création, ni modification, ni purge par
         l'API, y compris pour un administrateur : un journal que l'on peut
         éditer n'atteste de rien.
       parameters:
@@ -1909,7 +1909,7 @@ components:
 
     ExchangeRateUpdateInput:
       type: object
-      description: La paire n'est pas modifiable — seule la cotation l'est.
+      description: La paire n'est pas modifiable - seule la cotation l'est.
       properties:
         rate: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
         source: { type: string, enum: [manual, provider] }
@@ -2099,7 +2099,7 @@ components:
           type: string
           minLength: 3
           maxLength: 100
-          description: Référence du virement, obligatoire — c'est elle qui permet de retrouver le paiement en banque.
+          description: Référence du virement, obligatoire - c'est elle qui permet de retrouver le paiement en banque.
         payment_method:
           type: string
           nullable: true
@@ -2136,7 +2136,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         code: { type: string, example: CH-A12 }
-        name: { type: string, example: Chantier A12 — Viaduc Nord }
+        name: { type: string, example: Chantier A12 - Viaduc Nord }
         client_name: { type: string, nullable: true }
         is_active: { type: boolean }
         created_at: { type: string, format: date-time, nullable: true }
@@ -2288,7 +2288,7 @@ components:
         Dérivé du dernier rapprochement : `approved` (tout rapproché),
         `partially_approved` (portion payable), `under_review` (écart à
         arbitrer), `received` (rien de rapproché), `disputed` (arbitrage
-        défavorable — plus de rapprochement automatique), `cancelled`.
+        défavorable - plus de rapprochement automatique), `cancelled`.
 
     InvoiceLine:
       type: object
@@ -2400,7 +2400,7 @@ components:
         quantity_matched:
           type: number
           format: double
-          description: Portion payable — min(commandé, reçu) − déjà rapproché ailleurs.
+          description: Portion payable - min(commandé, reçu) − déjà rapproché ailleurs.
         quantity_unmatched: { type: number, format: double }
         unit_price_invoiced: { type: number, format: double }
         unit_price_ordered: { type: number, format: double, nullable: true }
@@ -2430,7 +2430,7 @@ components:
 
     MatchRun:
       type: object
-      description: Exécution immuable du moteur — la réponse à « qui, quand, sur quelles données ».
+      description: Exécution immuable du moteur - la réponse à « qui, quand, sur quelles données ».
       properties:
         id: { type: string, format: uuid }
         invoice_id: { type: string, format: uuid }
@@ -2450,7 +2450,7 @@ components:
         currency:
           allOf:
             - $ref: "#/components/schemas/Currency"
-          description: Devise de la facture — celle des montants ci-dessous et du règlement.
+          description: Devise de la facture - celle des montants ci-dessous et du règlement.
         base_currency:
           allOf:
             - $ref: "#/components/schemas/Currency"
@@ -2622,11 +2622,11 @@ components:
         match_run_id:
           type: string
           format: uuid
-          description: Exécution dont l'autorisation est issue — toute autorisation est traçable jusqu'à sa décision.
+          description: Exécution dont l'autorisation est issue - toute autorisation est traçable jusqu'à sa décision.
         amount:
           type: number
           format: double
-          description: Montant autorisé, dans la devise de facturation — celle du règlement.
+          description: Montant autorisé, dans la devise de facturation - celle du règlement.
         currency: { $ref: "#/components/schemas/Currency" }
         base_amount:
           type: number

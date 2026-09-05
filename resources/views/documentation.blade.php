@@ -15,7 +15,7 @@
 
             La feuille de style de Swagger UI est écrite en clair et n'expose
             aucune variable : sous le thème sombre hérité de la coquille, on
-            obtenait du gris foncé sur des blocs blancs posés sur un fond noir —
+            obtenait du gris foncé sur des blocs blancs posés sur un fond noir -
             la moitié de la page devenait illisible. Plutôt que de repeindre les
             quelques centaines de règles du paquet, la documentation garde une
             apparence unique, la sienne.
