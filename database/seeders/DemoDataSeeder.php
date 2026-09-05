@@ -23,8 +23,15 @@ use Illuminate\Support\Facades\Hash;
  *  2. Livraison partielle      → paiement partiel, reste en attente de BL
  *  3. Écart de prix            → écart signalé, aucun paiement sur la ligne
  *  4. Sur-facturation          → portion saine payée, excédent en revue
- *  5. Facture en dollars       → conversion au taux du jour, paiement en USD
- *  6. Facture en francs CFA    → conversion à la parité fixe, paiement en XOF
+ *  5. Commande en euros        → conversion à la parité fixe, règlement en XOF
+ *  6. Commande en dollars      → triangulation USD→EUR→XOF, règlement en XOF
+ *
+ * **Toutes les factures sont libellées en francs CFA**, la devise
+ * d'exploitation : c'est dans cette unité que les règlements partent. Les deux
+ * scénarios multidevises gardent en revanche un bon de commande en devise
+ * étrangère — c'est la situation réelle d'un fournisseur importateur, et c'est
+ * elle qui met la conversion à l'épreuve. Le franc CFA n'ayant pas de
+ * sous-unité, tous les prix ci-dessous sont des entiers.
  */
 class DemoDataSeeder extends Seeder
 {
@@ -50,9 +57,11 @@ class DemoDataSeeder extends Seeder
         $this->scenarioPriceVariance($users, $supplier, $project);
         $this->scenarioOverInvoiced($users, $supplier, $project);
 
-        // Les deux scenarios multidevises utilisent des fournisseurs dedies :
-        // un fournisseur facture dans SA devise, pas dans celle de l'ERP.
-        $this->scenarioDollarInvoice($users, $project);
+        // Les scenarios multidevises utilisent des fournisseurs dedies : le
+        // bon de commande est libelle dans la devise du contrat, la facture
+        // toujours dans la devise de reglement — le franc CFA.
+        $this->scenarioEuroOrderPaidInCfa($users, $project);
+        $this->scenarioDollarOrderPaidInCfa($users, $project);
         $this->scenarioCfaFrancInvoice($users, $project);
     }
 
@@ -88,15 +97,15 @@ class DemoDataSeeder extends Seeder
     private function scenarioFullyMatched(array $users, Supplier $supplier, Project $project): void
     {
         $purchaseOrder = $this->createPurchaseOrder($users['buyer'], $supplier, $project, 'PO-2026-0001', [
-            $this->line('CIM-42', 'Ciment CEM II 42,5 — sac 35 kg', 'sac', 400, 8.90),
-            $this->line('SAB-01', 'Sable 0/4 lavé', 't', 60, 24.50),
+            $this->line('CIM-42', 'Ciment CEM II 42,5 — sac 35 kg', 'sac', 400, 5850),
+            $this->line('SAB-01', 'Sable 0/4 lavé', 't', 60, 16000),
         ]);
 
         $this->deliver($users['warehouse'], $purchaseOrder, 'BL-2026-0001', [400, 60], accept: true);
 
         $this->invoice($users['accountant'], $purchaseOrder, 'FAC-2026-0001', [
-            [0, 400, 8.90],
-            [1, 60, 24.50],
+            [0, 400, 5850],
+            [1, 60, 16000],
         ]);
     }
 
@@ -107,14 +116,14 @@ class DemoDataSeeder extends Seeder
     private function scenarioPartialDelivery(array $users, Supplier $supplier, Project $project): void
     {
         $purchaseOrder = $this->createPurchaseOrder($users['buyer'], $supplier, $project, 'PO-2026-0002', [
-            $this->line('ACI-HA12', 'Acier HA12 — barre 12 m', 'u', 200, 18.40),
+            $this->line('ACI-HA12', 'Acier HA12 — barre 12 m', 'u', 200, 12000),
         ]);
 
         // 120 barres reçues sur 200 facturées.
         $this->deliver($users['warehouse'], $purchaseOrder, 'BL-2026-0002', [120], accept: true);
 
         $this->invoice($users['accountant'], $purchaseOrder, 'FAC-2026-0002', [
-            [0, 200, 18.40],
+            [0, 200, 12000],
         ]);
     }
 
@@ -125,14 +134,15 @@ class DemoDataSeeder extends Seeder
     private function scenarioPriceVariance(array $users, Supplier $supplier, Project $project): void
     {
         $purchaseOrder = $this->createPurchaseOrder($users['buyer'], $supplier, $project, 'PO-2026-0003', [
-            $this->line('LOC-PEL', 'Location pelle 20 t — journée', 'j', 15, 540.00),
+            $this->line('LOC-PEL', 'Location pelle 20 t — journée', 'j', 15, 354000),
         ]);
 
         $this->deliver($users['warehouse'], $purchaseOrder, 'BL-2026-0003', [15], accept: true);
 
-        // 612 EUR au lieu de 540 : +13,3 %, très au-delà de la tolérance de 1 %.
+        // 402 000 F CFA au lieu de 354 000 : +13,6 %, tres au-dela de la
+        // tolerance de 1 % comme du seuil absolu de 250 F.
         $this->invoice($users['accountant'], $purchaseOrder, 'FAC-2026-0003', [
-            [0, 15, 612.00],
+            [0, 15, 402000],
         ]);
     }
 
@@ -143,31 +153,31 @@ class DemoDataSeeder extends Seeder
     private function scenarioOverInvoiced(array $users, Supplier $supplier, Project $project): void
     {
         $purchaseOrder = $this->createPurchaseOrder($users['buyer'], $supplier, $project, 'PO-2026-0004', [
-            $this->line('PAR-BET', 'Parpaing béton 20x20x50', 'u', 1000, 1.35),
+            $this->line('PAR-BET', 'Parpaing béton 20x20x50', 'u', 1000, 900),
         ]);
 
         $this->deliver($users['warehouse'], $purchaseOrder, 'BL-2026-0004', [1000], accept: true);
 
         // 1 150 facturés pour 1 000 commandés et reçus.
         $this->invoice($users['accountant'], $purchaseOrder, 'FAC-2026-0004', [
-            [0, 1150, 1.35],
+            [0, 1150, 900],
         ]);
     }
 
     /**
-     * Fournisseur americain : bon de commande en euros (reference
-     * contractuelle), facture en dollars. Le moteur convertit au taux du jour
-     * de la facture pour comparer les prix, et autorise le paiement en dollars.
+     * Fournisseur europeen : bon de commande en euros (reference
+     * contractuelle), reglement en francs CFA. Le moteur convertit a la parite
+     * fixe pour comparer les prix, et autorise le paiement en XOF.
      *
      * @param  array<string, User>  $users
      */
-    private function scenarioDollarInvoice(array $users, Project $project): void
+    private function scenarioEuroOrderPaidInCfa(array $users, Project $project): void
     {
         $supplier = Supplier::create([
-            'code' => 'SUP-USTOOL',
-            'name' => 'US Heavy Tools Inc.',
-            'vat_number' => null,
-            'email' => 'ar@usheavytools.example',
+            'code' => 'SUP-EUTOOL',
+            'name' => 'Europe Heavy Tools SA',
+            'vat_number' => 'FR98765432101',
+            'email' => 'ar@europeheavytools.example',
             'is_active' => true,
         ]);
 
@@ -178,11 +188,42 @@ class DemoDataSeeder extends Seeder
 
         $this->deliver($users['warehouse'], $purchaseOrder, 'BL-2026-0005', [4], accept: true);
 
-        // 13 020 USD l'unite : au taux de 1 EUR = 1,085 USD, cela fait
+        // 7 871 484 F CFA l'unite : a la parite fixe de 655,957, cela fait
         // exactement 12 000 EUR. Le rapprochement doit etre complet.
         $this->invoice($users['accountant'], $purchaseOrder, 'FAC-2026-0005', [
-            [0, 4, 13020.00],
+            [0, 4, 7871484],
+        ], currency: 'XOF');
+    }
+
+    /**
+     * Fournisseur americain : bon de commande en dollars, reglement en francs
+     * CFA. USD/XOF n'est pas cote en direct — le taux se triangule par l'euro,
+     * et c'est ce chemin-la que le scenario met a l'epreuve.
+     *
+     * @param  array<string, User>  $users
+     */
+    private function scenarioDollarOrderPaidInCfa(array $users, Project $project): void
+    {
+        $supplier = Supplier::create([
+            'code' => 'SUP-USTOOL',
+            'name' => 'US Heavy Tools Inc.',
+            'vat_number' => null,
+            'email' => 'ar@usheavytools.example',
+            'is_active' => true,
+        ]);
+
+        $purchaseOrder = $this->createPurchaseOrder($users['buyer'], $supplier, $project, 'PO-2026-0007', [
+            $this->line('GRU-25', 'Grue mobile 25 t — location mensuelle', 'mois', 3, 5000.00),
         ], currency: 'USD');
+
+        $this->deliver($users['warehouse'], $purchaseOrder, 'BL-2026-0007', [3], accept: true);
+
+        // 5 000 USD = 4 608,29 EUR au taux de 1,085, soit 3 022 803 F CFA a la
+        // parite fixe. Arrondi au franc pres : le moteur doit rester dans la
+        // tolerance malgre le double changement d'unite.
+        $this->invoice($users['accountant'], $purchaseOrder, 'FAC-2026-0007', [
+            [0, 3, 3022803],
+        ], currency: 'XOF');
     }
 
     /**
@@ -222,7 +263,7 @@ class DemoDataSeeder extends Seeder
         Project $project,
         string $reference,
         array $lines,
-        string $currency = 'EUR',
+        string $currency = 'XOF',
     ): PurchaseOrder {
         return app(PurchaseOrderService::class)->create([
             'reference' => $reference,
@@ -282,7 +323,7 @@ class DemoDataSeeder extends Seeder
         PurchaseOrder $purchaseOrder,
         string $reference,
         array $lines,
-        string $currency = 'EUR',
+        string $currency = 'XOF',
     ): void {
         $orderLines = $purchaseOrder->lines()->orderBy('line_number')->get();
 

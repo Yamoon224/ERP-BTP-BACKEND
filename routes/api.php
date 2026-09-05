@@ -1,15 +1,19 @@
 <?php
 
+use App\Domains\Audit\Http\Controllers\AuditLogController;
 use App\Domains\Auth\Http\Controllers\AuthController;
 use App\Domains\Invoicing\Http\Controllers\InvoiceController;
 use App\Domains\Matching\Http\Controllers\InvoiceMatchingController;
 use App\Domains\Matching\Http\Controllers\MatchExceptionController;
 use App\Domains\Matching\Http\Controllers\MatchingDashboardController;
+use App\Domains\Matching\Http\Controllers\MatchRunController;
 use App\Domains\Payments\Http\Controllers\PaymentAuthorizationController;
 use App\Domains\Procurement\Http\Controllers\ProjectController;
 use App\Domains\Procurement\Http\Controllers\PurchaseOrderController;
 use App\Domains\Procurement\Http\Controllers\SupplierController;
 use App\Domains\Receiving\Http\Controllers\DeliveryNoteController;
+use App\Domains\Shared\Http\Controllers\CurrencyController;
+use App\Domains\Shared\Http\Controllers\ExchangeRateController;
 use App\Domains\Shared\Http\Controllers\HealthController;
 use App\Domains\Users\Http\Controllers\ProfileController;
 use App\Domains\Users\Http\Controllers\RoleController;
@@ -73,8 +77,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware('permission:procurement.manage')->group(function (): void {
         Route::post('/suppliers', [SupplierController::class, 'store']);
         Route::patch('/suppliers/{supplier}', [SupplierController::class, 'update']);
+        // Suppression refusee (409) des qu'un document cite la fiche : le
+        // referentiel est ce qui rend une decision archivee relisible.
+        Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy']);
         Route::post('/projects', [ProjectController::class, 'store']);
         Route::patch('/projects/{project}', [ProjectController::class, 'update']);
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);
         Route::post('/purchase-orders', [PurchaseOrderController::class, 'store']);
     });
 
@@ -96,15 +104,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware('permission:invoicing.view')->group(function (): void {
         Route::get('/invoices', [InvoiceController::class, 'index']);
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        // Export PDF : une lecture, servie a qui peut deja lire la facture.
+        Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf']);
     });
 
     Route::middleware('permission:invoicing.manage')->group(function (): void {
         Route::post('/invoices', [InvoiceController::class, 'store']);
+        // Changer la devise de reglement rejoue le rapprochement : le montant
+        // autorise ne se lit plus dans la meme unite, il doit etre recalcule.
+        Route::patch('/invoices/{invoice}/currency', [InvoiceController::class, 'changeCurrency']);
         Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
     });
 
     // --- Rapprochement -----------------------------------------------------
     Route::middleware('permission:matching.view')->group(function (): void {
+        // Registre global des executions, toutes factures confondues. Aucune
+        // route d'ecriture : une execution est immuable, on en cree une
+        // nouvelle en rejouant le rapprochement de la facture concernee.
+        Route::get('/match-runs', [MatchRunController::class, 'index']);
+        Route::get('/match-runs/{matchRun}', [MatchRunController::class, 'show']);
         Route::get('/invoices/{invoice}/match-runs', [InvoiceMatchingController::class, 'index']);
         Route::get('/invoices/{invoice}/match-runs/{matchRun}', [InvoiceMatchingController::class, 'show']);
         Route::get('/match-exceptions', [MatchExceptionController::class, 'index']);
@@ -120,6 +138,31 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // c'est le seul geste humain capable de débloquer un paiement.
     Route::middleware('permission:matching.review')->group(function (): void {
         Route::post('/match-exceptions/{matchException}/review', [MatchExceptionController::class, 'review']);
+    });
+
+    // --- Devises et taux de change -----------------------------------------
+    Route::middleware('permission:currencies.view')->group(function (): void {
+        Route::get('/currencies', CurrencyController::class);
+        Route::get('/exchange-rates', [ExchangeRateController::class, 'index']);
+        Route::get('/exchange-rates/{exchangeRate}', [ExchangeRateController::class, 'show']);
+    });
+
+    // Saisir un taux deplace le montant autorise au paiement : la permission
+    // est distincte de la simple consultation, et la parite fixe EUR/XOF reste
+    // hors d'atteinte quelle que soit la permission.
+    Route::middleware('permission:currencies.manage')->group(function (): void {
+        Route::post('/exchange-rates', [ExchangeRateController::class, 'store']);
+        Route::patch('/exchange-rates/{exchangeRate}', [ExchangeRateController::class, 'update']);
+        Route::delete('/exchange-rates/{exchangeRate}', [ExchangeRateController::class, 'destroy']);
+    });
+
+    // --- Journal d'audit ----------------------------------------------------
+    // Lecture seule, sans exception : ni creation, ni modification, ni purge
+    // par l'API. Un journal que l'on peut editer n'atteste de rien.
+    Route::middleware('permission:audit.view')->group(function (): void {
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-logs/facets', [AuditLogController::class, 'facets']);
+        Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
     });
 
     // --- Paiements ---------------------------------------------------------

@@ -7,6 +7,8 @@ use App\Domains\Payments\Contracts\PaymentAuthorizationRepositoryContract;
 use App\Domains\Procurement\Services\PurchaseOrderService;
 use App\Domains\Receiving\Enums\DeliveryNoteStatus;
 use App\Domains\Receiving\Services\DeliveryNoteService;
+use App\Domains\Shared\Contracts\ExchangeRateProviderContract;
+use App\Domains\Shared\Enums\Currency;
 use App\Models\DeliveryNote;
 use App\Models\Invoice;
 use App\Models\PaymentAuthorization;
@@ -315,18 +317,28 @@ class VolumeDemoSeeder extends Seeder
                 default => [1.14, 1.0],
             };
 
+            // Toutes les factures sont libellees en francs CFA : c'est la
+            // devise de reglement, quelle que soit celle du contrat. Les prix
+            // sont donc convertis depuis la devise du bon de commande, au taux
+            // en vigueur a la date de la facture — sans quoi chaque facture
+            // ressortirait en ecart de prix massif.
+            $invoiceDate = now()->subDays(mt_rand(1, 20))->toDateString();
+            $rate = app(ExchangeRateProviderContract::class)
+                ->rateFor($purchaseOrder->currency, Currency::XOF, $invoiceDate);
+
             $lines = $orderLines->map(fn ($line): array => [
                 'purchase_order_line_id' => $line->id,
                 'description' => $line->description,
                 'quantity' => round((float) $line->quantity_ordered * $quantityFactor, 2),
-                'unit_price' => round((float) $line->unit_price * $priceFactor, 2),
+                // Le franc CFA n'a pas de centime : arrondi a l'unite.
+                'unit_price' => round($rate->convert((float) $line->unit_price) * $priceFactor),
             ])->all();
 
             $service->submit([
                 'reference' => sprintf('FAC-2026-%04d', 1000 + $index),
                 'purchase_order_id' => $purchaseOrder->id,
-                'currency' => $purchaseOrder->currency->value,
-                'invoice_date' => now()->subDays(mt_rand(1, 20))->toDateString(),
+                'currency' => Currency::XOF->value,
+                'invoice_date' => $invoiceDate,
                 'due_date' => now()->addDays(mt_rand(10, 45))->toDateString(),
                 'lines' => $lines,
             ], $this->pick($users['accountant']));
@@ -367,15 +379,19 @@ class VolumeDemoSeeder extends Seeder
     }
 
     /**
-     * Un fournisseur sur six facture dans sa propre devise : le systeme doit
-     * etre exerce en multidevise, pas seulement en euros.
+     * Devise du BON DE COMMANDE — pas de la facture.
+     *
+     * Un contrat sur trois est libelle en devise etrangere (fournisseur
+     * importateur), les deux autres en franc CFA. Les factures, elles, sont
+     * toutes en XOF : c'est la devise dans laquelle l'entreprise regle. Le
+     * melange des deux est exactement ce qui doit exercer le convertisseur.
      */
     private function currencyFor(int $index): string
     {
         return match ($index % 6) {
             4 => 'USD',
-            5 => 'XOF',
-            default => 'EUR',
+            5 => 'EUR',
+            default => 'XOF',
         };
     }
 
