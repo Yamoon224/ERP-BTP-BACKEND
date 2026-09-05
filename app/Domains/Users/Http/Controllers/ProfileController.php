@@ -38,7 +38,7 @@ class ProfileController extends Controller
         $this->users->updateOwnPassword(
             $user,
             $request->string('password')->value(),
-            $user->currentAccessToken()->getKey(),
+            $user->currentAccessTokenId($request),
         );
 
         return response()->json([
