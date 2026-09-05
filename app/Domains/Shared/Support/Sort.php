@@ -30,17 +30,24 @@ final class Sort
     }
 
     /**
-     * @param  Builder<Model>  $query
+     * Le parametre est generique sur le modele : sans cela, un
+     * `Builder<Invoice>` ne serait pas accepte la ou un `Builder<Model>` est
+     * attendu — le parametre de type d'Eloquent n'est pas covariant.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @param  array<string, mixed>  $filters  contient eventuellement `sort` et `direction`
      * @param  array<string, string|array{0: string, 1: string}>  $allowed  cle publique => colonne, ou `Sort::raw(...)`
+     * @return Builder<TModel>
      */
     public static function apply(
-        $query,
+        Builder $query,
         array $filters,
         array $allowed,
         string $fallbackColumn = 'id',
         string $fallbackDirection = 'desc',
-    ) {
+    ): Builder {
         // Toute autre valeur que `desc` retombe sur `asc` : la direction est
         // ainsi bornee a deux mots-cles avant d'approcher le SQL.
         $direction = strtolower((string) ($filters['direction'] ?? '')) === 'desc' ? 'desc' : 'asc';

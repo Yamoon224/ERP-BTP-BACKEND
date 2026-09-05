@@ -27,11 +27,15 @@ class PurchaseOrderResource extends JsonResource
             // somme calculee par le depot. Dans les deux cas il est present :
             // une colonne « Montant » vide sur un ecran d'engagement d'achat
             // n'aurait aucun interet.
+            // `computed_total_amount` est une colonne ajoutee par le depot au
+            // moment de la liste, pas un attribut du modele : elle se lit donc
+            // par `getAttribute`, sinon l'analyse statique la cherche — a
+            // raison — parmi les proprietes declarees.
             'total_amount' => $this->relationLoaded('lines')
                 ? $this->totalAmount()
                 : $this->when(
-                    $this->computed_total_amount !== null,
-                    fn (): float => (float) $this->computed_total_amount,
+                    $this->resource->getAttribute('computed_total_amount') !== null,
+                    fn (): float => (float) $this->resource->getAttribute('computed_total_amount'),
                 ),
             'lines_count' => $this->whenCounted('lines'),
             'delivery_notes_count' => $this->whenCounted('deliveryNotes'),

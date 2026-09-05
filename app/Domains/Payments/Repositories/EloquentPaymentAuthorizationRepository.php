@@ -46,7 +46,7 @@ final class EloquentPaymentAuthorizationRepository implements PaymentAuthorizati
             // `settled` est un tri-etat : absent = tout, vrai = regle, faux =
             // en attente de reglement.
             ->when(
-                ($filters['settled'] ?? null) !== null && ($filters['settled'] ?? '') !== '',
+                ! in_array($filters['settled'] ?? null, [null, ''], true),
                 fn ($query) => filter_var($filters['settled'], FILTER_VALIDATE_BOOLEAN)
                     ? $query->whereNotNull('settled_at')
                     : $query->whereNull('settled_at'),

@@ -55,7 +55,9 @@ class MatchRunResource extends JsonResource
                 'reference' => $this->invoice->reference,
                 'status' => $this->invoice->status->value,
                 'currency' => $this->invoice->currency->value,
-                'supplier' => $this->invoice->relationLoaded('supplier') && $this->invoice->supplier !== null
+                // Une facture porte toujours un fournisseur — celui de son bon
+                // de commande. Seul le chargement de la relation est incertain.
+                'supplier' => $this->invoice->relationLoaded('supplier')
                     ? ['id' => $this->invoice->supplier->id, 'name' => $this->invoice->supplier->name]
                     : null,
             ]),
