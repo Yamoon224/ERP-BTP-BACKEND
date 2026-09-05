@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class EloquentConsumedQuantityReader implements ConsumedQuantityReaderContract
 {
-    public function consumedQuantitiesForPurchaseOrder(int $purchaseOrderId, ?int $excludingInvoiceId = null): array
+    public function consumedQuantitiesForPurchaseOrder(string $purchaseOrderId, ?string $excludingInvoiceId = null): array
     {
         $competingInvoices = DB::table('invoices')
             ->select('id')

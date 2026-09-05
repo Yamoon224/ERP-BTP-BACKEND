@@ -63,7 +63,7 @@ final class EloquentPaymentAuthorizationRepository implements PaymentAuthorizati
             ->withQueryString();
     }
 
-    public function activeForInvoice(int $invoiceId): ?PaymentAuthorization
+    public function activeForInvoice(string $invoiceId): ?PaymentAuthorization
     {
         return PaymentAuthorization::query()
             ->active()
@@ -100,7 +100,7 @@ final class EloquentPaymentAuthorizationRepository implements PaymentAuthorizati
         });
     }
 
-    public function revokeActiveForInvoice(int $invoiceId): void
+    public function revokeActiveForInvoice(string $invoiceId): void
     {
         PaymentAuthorization::query()
             ->active()
@@ -145,7 +145,7 @@ final class EloquentPaymentAuthorizationRepository implements PaymentAuthorizati
      * Une autorisation deja reglee n'est jamais declassee : le virement est
      * parti, la trace de ce qui l'a justifie doit rester intacte.
      */
-    private function supersedeActiveForInvoice(int $invoiceId): void
+    private function supersedeActiveForInvoice(string $invoiceId): void
     {
         PaymentAuthorization::query()
             ->active()

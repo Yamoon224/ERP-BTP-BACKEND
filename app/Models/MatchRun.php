@@ -7,6 +7,7 @@ use App\Domains\Matching\Enums\MatchStatus;
 use App\Domains\Shared\Enums\Currency;
 use Database\Factories\MatchRunFactory;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,10 +19,10 @@ use Illuminate\Support\Carbon;
  * Une execution du moteur de rapprochement sur une facture. Immuable une fois
  * ecrite : rejouer le rapprochement cree une nouvelle execution.
  *
- * @property int $id
- * @property int $invoice_id
+ * @property string $id
+ * @property string $invoice_id
  * @property ActorType $actor_type
- * @property int|null $actor_id
+ * @property string|null $actor_id
  * @property string $trigger
  * @property string $engine_version
  * @property array<string, float> $tolerance_snapshot
@@ -47,7 +48,7 @@ use Illuminate\Support\Carbon;
 class MatchRun extends Model
 {
     /** @use HasFactory<MatchRunFactory> */
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
         'invoice_id',

@@ -20,7 +20,7 @@ interface ExchangeRateRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): ExchangeRate;
+    public function findOrFail(string $id): ExchangeRate;
 
     /** @param  array<string, mixed>  $attributes */
     public function create(array $attributes): ExchangeRate;

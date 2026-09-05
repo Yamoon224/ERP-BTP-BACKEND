@@ -46,7 +46,7 @@ class InvoiceMatchingController extends Controller
         return (new MatchRunResource($matchRun))->response()->setStatusCode(201);
     }
 
-    public function show(Invoice $invoice, int $matchRun): MatchRunResource
+    public function show(Invoice $invoice, string $matchRun): MatchRunResource
     {
         $run = $this->matchRuns->findOrFail($matchRun);
 

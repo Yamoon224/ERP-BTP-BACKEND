@@ -371,7 +371,9 @@ class VolumeDemoSeeder extends Seeder
             }
 
             $repository->settle($authorization, [
-                'payment_reference' => sprintf('VIR-2026-%05d', 10000 + $authorization->id),
+                // Le numero de virement se derive du rang, plus de la cle :
+                // un UUID ne se met pas en forme dans un numero de piece.
+                'payment_reference' => sprintf('VIR-2026-%05d', 10000 + $position),
                 'payment_method' => 'transfer',
                 'settled_at' => now()->subDays(mt_rand(1, 12))->toDateTimeString(),
             ], $this->pick($users['accountant']));

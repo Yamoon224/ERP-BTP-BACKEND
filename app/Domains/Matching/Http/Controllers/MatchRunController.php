@@ -45,7 +45,7 @@ class MatchRunController extends Controller
         ));
     }
 
-    public function show(int $matchRun): MatchRunResource
+    public function show(string $matchRun): MatchRunResource
     {
         return new MatchRunResource($this->matchRuns->findOrFail($matchRun));
     }

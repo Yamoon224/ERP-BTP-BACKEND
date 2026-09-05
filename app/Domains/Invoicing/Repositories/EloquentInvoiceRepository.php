@@ -45,7 +45,7 @@ final class EloquentInvoiceRepository implements InvoiceRepositoryContract
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): Invoice
+    public function findOrFail(string $id): Invoice
     {
         return Invoice::with([
             'supplier',
@@ -59,7 +59,7 @@ final class EloquentInvoiceRepository implements InvoiceRepositoryContract
         ])->findOrFail($id);
     }
 
-    public function findForMatchingOrFail(int $id): Invoice
+    public function findForMatchingOrFail(string $id): Invoice
     {
         return Invoice::with([
             'purchaseOrder',
@@ -97,7 +97,7 @@ final class EloquentInvoiceRepository implements InvoiceRepositoryContract
         return $invoice->refresh();
     }
 
-    public function existsForSupplierReference(int $supplierId, string $reference): bool
+    public function existsForSupplierReference(string $supplierId, string $reference): bool
     {
         return Invoice::query()
             ->where('supplier_id', $supplierId)

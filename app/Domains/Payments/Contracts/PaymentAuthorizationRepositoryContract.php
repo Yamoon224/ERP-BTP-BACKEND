@@ -15,7 +15,7 @@ interface PaymentAuthorizationRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function activeForInvoice(int $invoiceId): ?PaymentAuthorization;
+    public function activeForInvoice(string $invoiceId): ?PaymentAuthorization;
 
     /**
      * Cree l'autorisation issue d'un rapprochement et remplace la precedente.
@@ -24,7 +24,7 @@ interface PaymentAuthorizationRepositoryContract
     public function issue(Invoice $invoice, MatchRun $matchRun, float $amount): PaymentAuthorization;
 
     /** Revoque l'autorisation active d'une facture (annulation, litige). */
-    public function revokeActiveForInvoice(int $invoiceId): void;
+    public function revokeActiveForInvoice(string $invoiceId): void;
 
     /**
      * Enregistre le reglement effectif d'une autorisation. Le montant n'est

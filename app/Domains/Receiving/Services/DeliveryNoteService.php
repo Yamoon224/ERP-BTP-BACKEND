@@ -39,13 +39,13 @@ final class DeliveryNoteService
         return $this->deliveryNotes->paginate($filters, $perPage);
     }
 
-    public function find(int $id): DeliveryNote
+    public function find(string $id): DeliveryNote
     {
         return $this->deliveryNotes->findOrFail($id);
     }
 
     /**
-     * @param  array{reference: string, purchase_order_id: int, received_at: string, notes?: string|null, lines: list<array{purchase_order_line_id: int, quantity_received: float}>}  $data
+     * @param  array{reference: string, purchase_order_id: string, received_at: string, notes?: string|null, lines: list<array{purchase_order_line_id: string, quantity_received: float}>}  $data
      *
      * @throws PurchaseOrderNotOpenException
      * @throws DeliveryLineNotOnPurchaseOrderException
@@ -116,7 +116,7 @@ final class DeliveryNoteService
     }
 
     /**
-     * @param  list<int>  $purchaseOrderLineIds
+     * @param  list<string>  $purchaseOrderLineIds
      *
      * @throws DeliveryLineNotOnPurchaseOrderException
      */

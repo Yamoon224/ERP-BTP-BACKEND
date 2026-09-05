@@ -3,8 +3,8 @@
 namespace App\Domains\Audit\Services;
 
 use App\Domains\Audit\Contracts\AuditLogRepositoryContract;
+use App\Models\ActivityLog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Spatie\Activitylog\Models\Activity;
 
 /**
  * Consultation du journal d'activite.
@@ -18,14 +18,14 @@ final class AuditLogService
     public function __construct(private readonly AuditLogRepositoryContract $logs) {}
 
     /** @param  array<string, mixed>  $filters
-     * @return LengthAwarePaginator<int, Activity>
+     * @return LengthAwarePaginator<int, ActivityLog>
      */
     public function list(array $filters, int $perPage = 10): LengthAwarePaginator
     {
         return $this->logs->paginate($filters, $perPage);
     }
 
-    public function find(int $id): Activity
+    public function find(string $id): ActivityLog
     {
         return $this->logs->findOrFail($id);
     }

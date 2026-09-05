@@ -18,8 +18,8 @@ class StorePurchaseOrderRequest extends FormRequest
     {
         return [
             'reference' => ['required', 'string', 'max:100', Rule::unique('purchase_orders', 'reference')],
-            'supplier_id' => ['required', 'integer', Rule::exists('suppliers', 'id')],
-            'project_id' => ['required', 'integer', Rule::exists('projects', 'id')],
+            'supplier_id' => ['required', 'uuid', Rule::exists('suppliers', 'id')],
+            'project_id' => ['required', 'uuid', Rule::exists('projects', 'id')],
             // La devise du bon de commande devient la reference de
             // comparaison des prix : elle doit etre une devise supportee,
             // pas une chaine de trois caracteres quelconque.

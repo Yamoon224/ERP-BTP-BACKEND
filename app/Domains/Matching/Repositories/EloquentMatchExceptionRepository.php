@@ -59,7 +59,7 @@ final class EloquentMatchExceptionRepository implements MatchExceptionRepository
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): MatchException
+    public function findOrFail(string $id): MatchException
     {
         return MatchException::with(['invoice.supplier', 'invoiceLine', 'lineResult', 'reviewer', 'matchRun'])
             ->findOrFail($id);

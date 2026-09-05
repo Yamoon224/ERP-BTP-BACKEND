@@ -36,7 +36,7 @@ final class EloquentUserRepository implements UserRepositoryContract
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): User
+    public function findOrFail(string $id): User
     {
         return User::with('roles')->findOrFail($id);
     }

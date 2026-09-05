@@ -10,19 +10,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('purchase_orders', function (Blueprint $table): void {
-            $table->id();
+            $table->uuid('id')->primary();
             // Longueur bornee : la reference sert d'index unique, et un
             // varchar(255) en utf8mb4 gonfle l'index sans rien apporter.
             $table->string('reference', 100)->unique();
-            $table->foreignId('supplier_id')->constrained()->restrictOnDelete();
-            $table->foreignId('project_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('supplier_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('project_id')->constrained()->restrictOnDelete();
             // Devise du bon de commande : c'est la reference contractuelle
             // dans laquelle les prix des factures seront confrontes.
             $table->char('currency', 3);
             $table->string('status')->default(PurchaseOrderStatus::Open->value);
             $table->date('ordered_at');
             $table->text('notes')->nullable();
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->index(['supplier_id', 'status']);
@@ -30,8 +30,8 @@ return new class extends Migration
         });
 
         Schema::create('purchase_order_lines', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('purchase_order_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('purchase_order_id')->constrained()->cascadeOnDelete();
             $table->unsignedInteger('line_number');
             $table->string('item_code');
             $table->string('description');

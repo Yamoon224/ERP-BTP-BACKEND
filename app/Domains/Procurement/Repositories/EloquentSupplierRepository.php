@@ -37,7 +37,7 @@ final class EloquentSupplierRepository implements SupplierRepositoryContract
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): Supplier
+    public function findOrFail(string $id): Supplier
     {
         return Supplier::findOrFail($id);
     }

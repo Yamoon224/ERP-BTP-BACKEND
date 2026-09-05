@@ -87,7 +87,7 @@ final class InvoiceMatchingService
      *
      * @return list<MatchRun>
      */
-    public function matchAllForPurchaseOrder(int $purchaseOrderId, ?User $actor, string $trigger): array
+    public function matchAllForPurchaseOrder(string $purchaseOrderId, ?User $actor, string $trigger): array
     {
         $invoices = Invoice::query()
             ->where('purchase_order_id', $purchaseOrderId)

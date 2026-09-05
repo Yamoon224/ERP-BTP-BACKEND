@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamp('settled_at')->nullable()->after('authorized_at');
             $table->string('payment_reference', 100)->nullable()->after('settled_at');
             $table->string('payment_method', 30)->nullable()->after('payment_reference');
-            $table->foreignId('settled_by')->nullable()->after('payment_method')
+            $table->foreignUuid('settled_by')->nullable()->after('payment_method')
                 ->constrained('users')->nullOnDelete();
 
             $table->index('settled_at');

@@ -41,7 +41,7 @@ final class EloquentDeliveryNoteRepository implements DeliveryNoteRepositoryCont
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): DeliveryNote
+    public function findOrFail(string $id): DeliveryNote
     {
         return DeliveryNote::with([
             'supplier',

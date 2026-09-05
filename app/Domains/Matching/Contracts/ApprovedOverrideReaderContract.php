@@ -11,8 +11,8 @@ use App\Domains\Matching\Enums\DiscrepancyType;
 interface ApprovedOverrideReaderContract
 {
     /**
-     * @return array<int, list<DiscrepancyType>>
-     *                                           invoice_line_id => types d'ecart acceptes
+     * @return array<string, list<DiscrepancyType>>
+     *                                              invoice_line_id => types d'ecart acceptes
      */
-    public function approvedOverridesForInvoice(int $invoiceId): array;
+    public function approvedOverridesForInvoice(string $invoiceId): array;
 }

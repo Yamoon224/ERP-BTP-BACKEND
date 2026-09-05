@@ -14,7 +14,7 @@ interface MatchExceptionRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): MatchException;
+    public function findOrFail(string $id): MatchException;
 
     public function markReviewed(
         MatchException $exception,

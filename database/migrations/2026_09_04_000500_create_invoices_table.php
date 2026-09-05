@@ -10,10 +10,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('invoices', function (Blueprint $table): void {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('reference', 100);
-            $table->foreignId('supplier_id')->constrained()->restrictOnDelete();
-            $table->foreignId('purchase_order_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('supplier_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('purchase_order_id')->constrained()->restrictOnDelete();
             // Devise de facturation : celle dans laquelle le fournisseur
             // sera regle. Elle peut differer de celle du bon de commande,
             // le rapprochement convertit alors au taux du jour de facture.
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->date('invoice_date');
             $table->date('due_date')->nullable();
             $table->decimal('total_amount', 15, 2)->default(0);
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             // Contrainte anti-doublon de paiement : un fournisseur ne peut pas
@@ -32,12 +32,12 @@ return new class extends Migration
         });
 
         Schema::create('invoice_lines', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('invoice_id')->constrained()->cascadeOnDelete();
             // Nullable : une facture peut arriver avec une ligne qui ne
             // reference aucune ligne de PO. Le moteur doit pouvoir la recevoir
             // pour la signaler, plutot que de rejeter la facture a la saisie.
-            $table->foreignId('purchase_order_line_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignUuid('purchase_order_line_id')->nullable()->constrained()->nullOnDelete();
             $table->unsignedInteger('line_number');
             $table->string('description');
             $table->decimal('quantity', 15, 3);

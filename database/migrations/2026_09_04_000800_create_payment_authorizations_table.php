@@ -10,9 +10,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('payment_authorizations', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('match_run_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('invoice_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('match_run_id')->constrained()->cascadeOnDelete();
             // Le paiement est autorise dans la devise de la facture.
             $table->char('currency', 3);
             $table->decimal('amount', 15, 2);

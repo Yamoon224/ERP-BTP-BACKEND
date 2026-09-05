@@ -2,17 +2,17 @@
 
 namespace App\Domains\Audit\Contracts;
 
+use App\Models\ActivityLog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Spatie\Activitylog\Models\Activity;
 
 interface AuditLogRepositoryContract
 {
     /** @param  array<string, mixed>  $filters
-     * @return LengthAwarePaginator<int, Activity>
+     * @return LengthAwarePaginator<int, ActivityLog>
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): Activity;
+    public function findOrFail(string $id): ActivityLog;
 
     /**
      * Valeurs distinctes des colonnes filtrables, pour alimenter les listes

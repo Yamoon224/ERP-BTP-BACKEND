@@ -29,7 +29,7 @@ final class ExchangeRateService
         return $this->rates->paginate($filters, $perPage);
     }
 
-    public function find(int $id): ExchangeRate
+    public function find(string $id): ExchangeRate
     {
         return $this->rates->findOrFail($id);
     }

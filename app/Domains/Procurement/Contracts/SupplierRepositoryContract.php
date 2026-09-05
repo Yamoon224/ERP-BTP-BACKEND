@@ -12,7 +12,7 @@ interface SupplierRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): Supplier;
+    public function findOrFail(string $id): Supplier;
 
     /** @param  array<string, mixed>  $attributes */
     public function create(array $attributes): Supplier;

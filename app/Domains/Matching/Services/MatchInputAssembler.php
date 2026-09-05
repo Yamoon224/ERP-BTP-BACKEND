@@ -103,8 +103,8 @@ final class MatchInputAssembler
     }
 
     /**
-     * @param  array<int, float>  $received
-     * @param  array<int, float>  $consumed
+     * @param  array<string, float>  $received
+     * @param  array<string, float>  $consumed
      */
     private function snapshotPurchaseOrderLine(
         ?PurchaseOrderLine $line,

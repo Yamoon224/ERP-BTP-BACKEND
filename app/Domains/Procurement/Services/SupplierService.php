@@ -19,7 +19,7 @@ final class SupplierService
         return $this->suppliers->paginate($filters, $perPage);
     }
 
-    public function find(int $id): Supplier
+    public function find(string $id): Supplier
     {
         return $this->suppliers->findOrFail($id);
     }

@@ -38,7 +38,7 @@ class AuditLogController extends Controller
         ));
     }
 
-    public function show(int $auditLog): AuditLogResource
+    public function show(string $auditLog): AuditLogResource
     {
         return new AuditLogResource($this->auditLogs->find($auditLog));
     }

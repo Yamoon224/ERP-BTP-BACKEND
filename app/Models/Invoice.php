@@ -6,6 +6,7 @@ use App\Domains\Invoicing\Enums\InvoiceStatus;
 use App\Domains\Shared\Enums\Currency;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,16 +17,16 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
+ * @property string $id
  * @property string $reference
- * @property int $supplier_id
- * @property int $purchase_order_id
+ * @property string $supplier_id
+ * @property string $purchase_order_id
  * @property Currency $currency
  * @property InvoiceStatus $status
  * @property Carbon $invoice_date
  * @property Carbon|null $due_date
  * @property numeric-string $total_amount
- * @property int|null $created_by
+ * @property string|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Supplier $supplier
@@ -38,7 +39,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class Invoice extends Model
 {
     /** @use HasFactory<InvoiceFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = [
         'reference',

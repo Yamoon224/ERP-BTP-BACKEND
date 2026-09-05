@@ -38,7 +38,7 @@ final class EloquentProjectRepository implements ProjectRepositoryContract
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): Project
+    public function findOrFail(string $id): Project
     {
         return Project::findOrFail($id);
     }

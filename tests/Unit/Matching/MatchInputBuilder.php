@@ -20,12 +20,25 @@ use App\Domains\Shared\Enums\ExchangeRateSource;
  */
 final class MatchInputBuilder
 {
+    /*
+     * Identifiants figes plutot que tires au hasard : le moteur ne fait que
+     * les comparer et les recopier dans la preuve, et une valeur stable rend
+     * un echec de test lisible.
+     */
+    private const INVOICE_ID = '00000000-0000-4000-8000-0000000000f1';
+
+    private const PURCHASE_ORDER_ID = '00000000-0000-4000-8000-0000000000c1';
+
+    private const SUPPLIER_ID = '00000000-0000-4000-8000-000000000001';
+
+    private const OTHER_SUPPLIER_ID = '00000000-0000-4000-8000-000000000999';
+
     /** @var list<InvoiceLineInput> */
     private array $lines = [];
 
-    private int $invoiceSupplierId = 1;
+    private string $invoiceSupplierId = self::SUPPLIER_ID;
 
-    private int $purchaseOrderSupplierId = 1;
+    private string $purchaseOrderSupplierId = self::SUPPLIER_ID;
 
     private Currency $invoiceCurrency = Currency::EUR;
 
@@ -49,10 +62,20 @@ final class MatchInputBuilder
         return new self;
     }
 
+    /**
+     * UUID derive d'un numero de ligne : `inv` pour une ligne de facture, `pol`
+     * pour la ligne de commande en face. Deterministe, donc relisible dans un
+     * message d'echec.
+     */
+    private static function lineId(string $kind, int $lineNumber): string
+    {
+        return sprintf('00000000-0000-4000-8000-%s%08d', $kind === 'inv' ? 'aa' : 'bb', $lineNumber);
+    }
+
     public function withSupplierMismatch(): self
     {
         $clone = clone $this;
-        $clone->invoiceSupplierId = 999;
+        $clone->invoiceSupplierId = self::OTHER_SUPPLIER_ID;
 
         return $clone;
     }
@@ -107,13 +130,13 @@ final class MatchInputBuilder
         $lineNumber = $clone->nextLineNumber++;
 
         $clone->lines[] = new InvoiceLineInput(
-            id: $lineNumber,
+            id: self::lineId('inv', $lineNumber),
             lineNumber: $lineNumber,
             description: "Article {$lineNumber}",
             quantity: $quantityInvoiced,
             unitPrice: $unitPriceInvoiced,
             purchaseOrderLine: new PurchaseOrderLineSnapshot(
-                id: 100 + $lineNumber,
+                id: self::lineId('pol', $lineNumber),
                 lineNumber: $lineNumber,
                 itemCode: "ART-{$lineNumber}",
                 quantityOrdered: $quantityOrdered,
@@ -137,7 +160,7 @@ final class MatchInputBuilder
         $lineNumber = $clone->nextLineNumber++;
 
         $clone->lines[] = new InvoiceLineInput(
-            id: $lineNumber,
+            id: self::lineId('inv', $lineNumber),
             lineNumber: $lineNumber,
             description: "Prestation hors commande {$lineNumber}",
             quantity: $quantity,
@@ -168,11 +191,11 @@ final class MatchInputBuilder
         );
 
         return new InvoiceMatchInput(
-            invoiceId: 1,
+            invoiceId: self::INVOICE_ID,
             invoiceReference: 'FAC-TEST-001',
             invoiceSupplierId: $this->invoiceSupplierId,
             invoiceCurrency: $this->invoiceCurrency,
-            purchaseOrderId: 1,
+            purchaseOrderId: self::PURCHASE_ORDER_ID,
             purchaseOrderReference: 'PO-TEST-001',
             purchaseOrderSupplierId: $this->purchaseOrderSupplierId,
             purchaseOrderCurrency: $this->purchaseOrderCurrency,

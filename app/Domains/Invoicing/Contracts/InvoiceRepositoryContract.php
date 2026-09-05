@@ -13,10 +13,10 @@ interface InvoiceRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): Invoice;
+    public function findOrFail(string $id): Invoice;
 
     /** Charge la facture avec ses lignes et le PO complet, pret pour le moteur. */
-    public function findForMatchingOrFail(int $id): Invoice;
+    public function findForMatchingOrFail(string $id): Invoice;
 
     /**
      * @param  array<string, mixed>  $attributes
@@ -37,5 +37,5 @@ interface InvoiceRepositoryContract
      */
     public function updateAttributes(Invoice $invoice, array $attributes): Invoice;
 
-    public function existsForSupplierReference(int $supplierId, string $reference): bool;
+    public function existsForSupplierReference(string $supplierId, string $reference): bool;
 }

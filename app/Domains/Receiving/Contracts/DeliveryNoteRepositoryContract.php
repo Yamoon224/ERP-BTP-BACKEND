@@ -13,7 +13,7 @@ interface DeliveryNoteRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): DeliveryNote;
+    public function findOrFail(string $id): DeliveryNote;
 
     /**
      * @param  array<string, mixed>  $attributes

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\ProjectFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
+ * @property string $id
  * @property string $code
  * @property string $name
  * @property string|null $client_name
@@ -22,7 +23,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class Project extends Model
 {
     /** @use HasFactory<ProjectFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = ['code', 'name', 'client_name', 'is_active'];
 

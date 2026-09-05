@@ -12,7 +12,7 @@ interface ProjectRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): Project;
+    public function findOrFail(string $id): Project;
 
     /** @param  array<string, mixed>  $attributes */
     public function create(array $attributes): Project;

@@ -27,13 +27,13 @@ final readonly class InvoiceMatchInput
      *                                                      moteur bloque alors la facture.
      */
     public function __construct(
-        public int $invoiceId,
+        public string $invoiceId,
         public string $invoiceReference,
-        public int $invoiceSupplierId,
+        public string $invoiceSupplierId,
         public Currency $invoiceCurrency,
-        public int $purchaseOrderId,
+        public string $purchaseOrderId,
         public string $purchaseOrderReference,
-        public int $purchaseOrderSupplierId,
+        public string $purchaseOrderSupplierId,
         public Currency $purchaseOrderCurrency,
         public bool $purchaseOrderAcceptsDocuments,
         public array $lines,

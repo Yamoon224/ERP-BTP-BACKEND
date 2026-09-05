@@ -27,7 +27,7 @@ final class UserService
         return $this->users->paginate($filters, $perPage);
     }
 
-    public function find(int $id): User
+    public function find(string $id): User
     {
         return $this->users->findOrFail($id);
     }

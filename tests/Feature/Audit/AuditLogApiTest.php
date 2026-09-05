@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Audit;
 
+use App\Models\ActivityLog;
 use App\Models\Supplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 /**
@@ -106,7 +106,7 @@ class AuditLogApiTest extends TestCase
         $this->actingAsRole('buyer');
         Supplier::factory()->create();
 
-        $entry = Activity::query()->latest('id')->firstOrFail();
+        $entry = ActivityLog::query()->latest('id')->firstOrFail();
 
         $this->actingAsRole('admin');
 

@@ -26,7 +26,7 @@ class StoreInvoiceRequest extends FormRequest
     {
         return [
             'reference' => ['required', 'string', 'max:100'],
-            'purchase_order_id' => ['required', 'integer', Rule::exists('purchase_orders', 'id')],
+            'purchase_order_id' => ['required', 'uuid', Rule::exists('purchase_orders', 'id')],
             // Devise de facturation. Peut differer de celle du bon de
             // commande : le rapprochement convertira au taux du jour de
             // la facture, ou signalera l'absence de taux.
@@ -38,7 +38,7 @@ class StoreInvoiceRequest extends FormRequest
             // Nullable : une ligne sans rattachement au PO est acceptée puis
             // signalée par le moteur, plutôt que rejetée à la saisie — sinon
             // la fraude reste invisible au lieu d'être tracée.
-            'lines.*.purchase_order_line_id' => ['nullable', 'integer', Rule::exists('purchase_order_lines', 'id')],
+            'lines.*.purchase_order_line_id' => ['nullable', 'uuid', Rule::exists('purchase_order_lines', 'id')],
             'lines.*.description' => ['required', 'string', 'max:255'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'gte:0'],

@@ -14,7 +14,7 @@ interface ReceivedQuantityReaderContract
     /**
      * Quantites cumulees receptionnees (BL acceptes uniquement) par ligne de PO.
      *
-     * @return array<int, float> purchase_order_line_id => quantite recue
+     * @return array<string, float> purchase_order_line_id => quantite recue
      */
-    public function receivedQuantitiesForPurchaseOrder(int $purchaseOrderId): array;
+    public function receivedQuantitiesForPurchaseOrder(string $purchaseOrderId): array;
 }

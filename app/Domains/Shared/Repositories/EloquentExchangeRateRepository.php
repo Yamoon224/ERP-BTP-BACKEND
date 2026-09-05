@@ -38,7 +38,7 @@ final class EloquentExchangeRateRepository implements ExchangeRateRepositoryCont
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): ExchangeRate
+    public function findOrFail(string $id): ExchangeRate
     {
         return ExchangeRate::findOrFail($id);
     }

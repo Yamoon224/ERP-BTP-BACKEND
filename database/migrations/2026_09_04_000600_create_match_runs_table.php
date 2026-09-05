@@ -16,13 +16,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('match_runs', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('invoice_id')->constrained()->cascadeOnDelete();
 
             // QUI : soit le moteur (system), soit un utilisateur identifie qui
             // a declenche ou arbitre le rapprochement.
             $table->string('actor_type')->default(ActorType::System->value);
-            $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('actor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('trigger', 64);
 
             // SUR LA BASE DE QUELLES DONNEES : version du moteur et copie figee
@@ -63,10 +63,10 @@ return new class extends Migration
         });
 
         Schema::create('match_line_results', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('match_run_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('invoice_line_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('purchase_order_line_id')->nullable()->constrained()->nullOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('match_run_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('invoice_line_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('purchase_order_line_id')->nullable()->constrained()->nullOnDelete();
 
             $table->string('status');
             $table->decimal('quantity_invoiced', 15, 3);

@@ -10,7 +10,7 @@ namespace App\Domains\Matching\DTOs;
 final readonly class PurchaseOrderLineSnapshot
 {
     public function __construct(
-        public int $id,
+        public string $id,
         public int $lineNumber,
         public string $itemCode,
         public float $quantityOrdered,

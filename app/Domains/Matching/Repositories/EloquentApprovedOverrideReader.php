@@ -15,7 +15,7 @@ use App\Models\MatchException;
  */
 final class EloquentApprovedOverrideReader implements ApprovedOverrideReaderContract
 {
-    public function approvedOverridesForInvoice(int $invoiceId): array
+    public function approvedOverridesForInvoice(string $invoiceId): array
     {
         $overrides = [];
 

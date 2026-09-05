@@ -11,7 +11,7 @@ use App\Domains\Shared\Exceptions\DomainException;
  */
 final class DuplicateInvoiceException extends DomainException
 {
-    public static function make(string $reference, int $supplierId): self
+    public static function make(string $reference, string $supplierId): self
     {
         return new self(
             message: "Une facture portant la reference {$reference} existe deja pour ce fournisseur.",

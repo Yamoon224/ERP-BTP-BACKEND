@@ -17,12 +17,12 @@ class StoreDeliveryNoteRequest extends FormRequest
     {
         return [
             'reference' => ['required', 'string', 'max:100'],
-            'purchase_order_id' => ['required', 'integer', Rule::exists('purchase_orders', 'id')],
+            'purchase_order_id' => ['required', 'uuid', Rule::exists('purchase_orders', 'id')],
             'received_at' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
 
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.purchase_order_line_id' => ['required', 'integer', Rule::exists('purchase_order_lines', 'id')],
+            'lines.*.purchase_order_line_id' => ['required', 'uuid', Rule::exists('purchase_order_lines', 'id')],
             'lines.*.quantity_received' => ['required', 'numeric', 'gt:0'],
         ];
     }

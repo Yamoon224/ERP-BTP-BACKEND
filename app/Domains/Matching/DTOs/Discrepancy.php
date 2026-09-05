@@ -16,7 +16,7 @@ final readonly class Discrepancy
         public DiscrepancyType $type,
         public string $message,
         public array $context = [],
-        public ?int $invoiceLineId = null,
+        public ?string $invoiceLineId = null,
     ) {}
 
     public function severity(): DiscrepancySeverity

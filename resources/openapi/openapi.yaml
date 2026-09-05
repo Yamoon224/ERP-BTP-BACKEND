@@ -277,7 +277,7 @@ paths:
       - name: user
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant du compte.
     get:
       tags: [Comptes]
@@ -415,7 +415,7 @@ paths:
       - name: supplier
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant du fournisseur.
     get:
       tags: [Référentiel]
@@ -532,7 +532,7 @@ paths:
       - name: project
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
     get:
       tags: [Référentiel]
       summary: Consulter un chantier
@@ -600,10 +600,10 @@ paths:
         - $ref: "#/components/parameters/Search"
         - name: supplier_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: project_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: status
           in: query
           schema: { $ref: "#/components/schemas/PurchaseOrderStatus" }
@@ -655,7 +655,7 @@ paths:
       - name: purchaseOrder
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
     get:
       tags: [Bons de commande]
       summary: Consulter un bon de commande et ses lignes
@@ -682,10 +682,10 @@ paths:
         - $ref: "#/components/parameters/Search"
         - name: purchase_order_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: supplier_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: status
           in: query
           schema: { $ref: "#/components/schemas/DeliveryNoteStatus" }
@@ -750,7 +750,7 @@ paths:
       - name: deliveryNote
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
     get:
       tags: [Bons de livraison]
       summary: Consulter un bon de livraison
@@ -773,7 +773,7 @@ paths:
       - name: deliveryNote
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
     post:
       tags: [Bons de livraison]
       summary: Contrôler la réception (accepter ou refuser)
@@ -827,10 +827,10 @@ paths:
         - $ref: "#/components/parameters/Search"
         - name: supplier_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: purchase_order_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: status
           in: query
           schema: { $ref: "#/components/schemas/InvoiceStatus" }
@@ -1097,7 +1097,7 @@ paths:
       - name: matchRun
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant de l'exécution.
     get:
       tags: [Rapprochement]
@@ -1143,10 +1143,10 @@ paths:
           schema: { $ref: "#/components/schemas/DiscrepancySeverity" }
         - name: invoice_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: supplier_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
       responses:
@@ -1170,7 +1170,7 @@ paths:
       - name: matchException
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
     get:
       tags: [Écarts]
       summary: Consulter un écart et son contexte chiffré
@@ -1193,7 +1193,7 @@ paths:
       - name: matchException
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
     post:
       tags: [Écarts]
       summary: Arbitrer un écart
@@ -1272,10 +1272,10 @@ paths:
       parameters:
         - name: invoice_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: supplier_id
           in: query
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
         - name: status
           in: query
           schema: { $ref: "#/components/schemas/PaymentAuthorizationStatus" }
@@ -1309,7 +1309,7 @@ paths:
       - name: paymentAuthorization
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant de l'autorisation à régler.
     post:
       tags: [Paiements]
@@ -1412,11 +1412,11 @@ paths:
         - $ref: "#/components/parameters/Search"
         - name: invoice_id
           in: query
-          schema: { type: integer, minimum: 1 }
+          schema: { type: string, format: uuid }
           description: Restreint aux exécutions d'une facture.
         - name: supplier_id
           in: query
-          schema: { type: integer, minimum: 1 }
+          schema: { type: string, format: uuid }
           description: Restreint aux exécutions des factures d'un fournisseur.
         - name: status
           in: query
@@ -1452,7 +1452,7 @@ paths:
       - name: matchRun
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant de l'exécution.
     get:
       tags: [Rapprochement]
@@ -1574,7 +1574,7 @@ paths:
       - name: exchangeRate
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant du taux.
     get:
       tags: [Devises]
@@ -1665,10 +1665,10 @@ paths:
           description: Classe de l'objet concerné.
         - name: subject_id
           in: query
-          schema: { type: integer, minimum: 1 }
+          schema: { type: string, format: uuid }
         - name: causer_id
           in: query
-          schema: { type: integer, minimum: 1 }
+          schema: { type: string, format: uuid }
           description: Auteur du changement. Absent pour une décision du moteur.
         - name: from
           in: query
@@ -1731,7 +1731,7 @@ paths:
       - name: auditLog
         in: path
         required: true
-        schema: { type: integer, minimum: 1 }
+        schema: { type: string, format: uuid }
         description: Identifiant de l'entrée de journal.
     get:
       tags: [Audit]
@@ -1792,7 +1792,7 @@ components:
       name: invoice
       in: path
       required: true
-      schema: { type: integer, minimum: 1 }
+      schema: { type: string, format: uuid }
       description: Identifiant de la facture.
 
   responses:
@@ -1873,7 +1873,7 @@ components:
     ExchangeRateQuote:
       type: object
       properties:
-        id: { type: integer, example: 1 }
+        id: { type: string, format: uuid }
         base_currency: { $ref: "#/components/schemas/Currency" }
         quote_currency: { $ref: "#/components/schemas/Currency" }
         rate:
@@ -1918,7 +1918,7 @@ components:
     AuditLog:
       type: object
       properties:
-        id: { type: integer, example: 1 }
+        id: { type: string, format: uuid }
         log_name: { type: string, nullable: true, example: default }
         description: { type: string, example: updated }
         event: { type: string, nullable: true, example: updated }
@@ -1931,12 +1931,12 @@ components:
           type: string
           example: Facture
           description: Libellé métier du type d'objet, pour l'affichage.
-        subject_id: { type: integer, nullable: true }
+        subject_id: { type: string, format: uuid, nullable: true }
         causer:
           type: object
           nullable: true
           properties:
-            id: { type: integer }
+            id: { type: string, format: uuid }
             name: { type: string }
         causer_label:
           type: string
@@ -2021,7 +2021,7 @@ components:
     User:
       type: object
       properties:
-        id: { type: integer, example: 5 }
+        id: { type: string, format: uuid }
         name: { type: string, example: Nadia Belkacem }
         email: { type: string, format: email }
         roles:
@@ -2113,7 +2113,7 @@ components:
     Supplier:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         code: { type: string, example: SUP-BETON }
         name: { type: string, example: Béton Express SAS }
         vat_number: { type: string, nullable: true }
@@ -2134,7 +2134,7 @@ components:
     Project:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         code: { type: string, example: CH-A12 }
         name: { type: string, example: Chantier A12 — Viaduc Nord }
         client_name: { type: string, nullable: true }
@@ -2160,7 +2160,7 @@ components:
     PurchaseOrderLine:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         line_number: { type: integer, example: 1 }
         item_code: { type: string, example: CIM-42 }
         description: { type: string }
@@ -2172,7 +2172,7 @@ components:
     PurchaseOrder:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         reference: { type: string, example: PO-2026-0001 }
         status: { $ref: "#/components/schemas/PurchaseOrderStatus" }
         status_label: { type: string, example: Ouvert }
@@ -2198,8 +2198,8 @@ components:
       required: [reference, supplier_id, project_id, ordered_at, lines]
       properties:
         reference: { type: string, maxLength: 100, example: PO-2026-0001 }
-        supplier_id: { type: integer }
-        project_id: { type: integer }
+        supplier_id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
         currency:
           allOf:
             - $ref: "#/components/schemas/Currency"
@@ -2229,14 +2229,14 @@ components:
     DeliveryNoteLine:
       type: object
       properties:
-        id: { type: integer }
-        purchase_order_line_id: { type: integer }
+        id: { type: string, format: uuid }
+        purchase_order_line_id: { type: string, format: uuid }
         quantity_received: { type: number, format: double }
         purchase_order_line:
           type: object
           nullable: true
           properties:
-            id: { type: integer }
+            id: { type: string, format: uuid }
             line_number: { type: integer }
             item_code: { type: string }
             description: { type: string }
@@ -2246,7 +2246,7 @@ components:
     DeliveryNote:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         reference: { type: string, example: BL-2026-0001 }
         status: { $ref: "#/components/schemas/DeliveryNoteStatus" }
         status_label: { type: string }
@@ -2255,7 +2255,7 @@ components:
           description: Vrai uniquement si le bon est accepté.
         received_at: { type: string, format: date }
         notes: { type: string, nullable: true }
-        purchase_order_id: { type: integer }
+        purchase_order_id: { type: string, format: uuid }
         supplier: { $ref: "#/components/schemas/Supplier" }
         lines:
           type: array
@@ -2268,7 +2268,7 @@ components:
       required: [reference, purchase_order_id, received_at, lines]
       properties:
         reference: { type: string, maxLength: 100, example: BL-2026-0001 }
-        purchase_order_id: { type: integer }
+        purchase_order_id: { type: string, format: uuid }
         received_at: { type: string, format: date }
         notes: { type: string, maxLength: 2000, nullable: true }
         lines:
@@ -2278,7 +2278,7 @@ components:
             type: object
             required: [purchase_order_line_id, quantity_received]
             properties:
-              purchase_order_line_id: { type: integer }
+              purchase_order_line_id: { type: string, format: uuid }
               quantity_received: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
 
     InvoiceStatus:
@@ -2293,21 +2293,22 @@ components:
     InvoiceLine:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         line_number: { type: integer }
         description: { type: string }
         quantity: { type: number, format: double }
         unit_price: { type: number, format: double }
         invoiced_amount: { type: number, format: double }
         purchase_order_line_id:
-          type: integer
+          type: string
+          format: uuid
           nullable: true
           description: "`null` = ligne hors commande, systématiquement signalée."
 
     Invoice:
       type: object
       properties:
-        id: { type: integer }
+        id: { type: string, format: uuid }
         reference: { type: string, example: FAC-2026-0001 }
         status: { $ref: "#/components/schemas/InvoiceStatus" }
         status_label: { type: string }
@@ -2325,7 +2326,7 @@ components:
           format: double
           description: Recalculé depuis les lignes, jamais fourni par l'appelant.
         supplier: { $ref: "#/components/schemas/Supplier" }
-        purchase_order_id: { type: integer }
+        purchase_order_id: { type: string, format: uuid }
         lines:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLine" }
@@ -2346,7 +2347,7 @@ components:
       required: [reference, purchase_order_id, invoice_date, lines]
       properties:
         reference: { type: string, maxLength: 100, example: FAC-2026-0001 }
-        purchase_order_id: { type: integer }
+        purchase_order_id: { type: string, format: uuid }
         currency:
           allOf:
             - $ref: "#/components/schemas/Currency"
@@ -2365,7 +2366,8 @@ components:
             required: [description, quantity, unit_price]
             properties:
               purchase_order_line_id:
-                type: integer
+                type: string
+                format: uuid
                 nullable: true
                 description: Laisser `null` produit un écart `missing_purchase_order_line`.
               description: { type: string, maxLength: 255 }
@@ -2389,9 +2391,9 @@ components:
     MatchLineResult:
       type: object
       properties:
-        id: { type: integer }
-        invoice_line_id: { type: integer }
-        purchase_order_line_id: { type: integer, nullable: true }
+        id: { type: string, format: uuid }
+        invoice_line_id: { type: string, format: uuid }
+        purchase_order_line_id: { type: string, format: uuid, nullable: true }
         status: { $ref: "#/components/schemas/MatchStatus" }
         status_label: { type: string }
         quantity_invoiced: { type: number, format: double }
@@ -2430,15 +2432,15 @@ components:
       type: object
       description: Exécution immuable du moteur — la réponse à « qui, quand, sur quelles données ».
       properties:
-        id: { type: integer }
-        invoice_id: { type: integer }
+        id: { type: string, format: uuid }
+        invoice_id: { type: string, format: uuid }
         status: { $ref: "#/components/schemas/MatchStatus" }
         status_label: { type: string }
         decided_by:
           type: object
           properties:
             actor_type: { $ref: "#/components/schemas/ActorType" }
-            actor_id: { type: integer, nullable: true }
+            actor_id: { type: string, format: uuid, nullable: true }
             label: { type: string, example: "Moteur de rapprochement v1.0.0" }
         trigger:
           allOf:
@@ -2572,11 +2574,12 @@ components:
     MatchException:
       type: object
       properties:
-        id: { type: integer }
-        match_run_id: { type: integer }
-        invoice_id: { type: integer }
+        id: { type: string, format: uuid }
+        match_run_id: { type: string, format: uuid }
+        invoice_id: { type: string, format: uuid }
         invoice_line_id:
-          type: integer
+          type: string
+          format: uuid
           nullable: true
           description: "`null` pour un écart portant sur la facture entière."
         type: { $ref: "#/components/schemas/DiscrepancyType" }
@@ -2600,7 +2603,7 @@ components:
           type: object
           nullable: true
           properties:
-            id: { type: integer }
+            id: { type: string, format: uuid }
             name: { type: string }
         created_at: { type: string, format: date-time, nullable: true }
 
@@ -2614,10 +2617,11 @@ components:
     PaymentAuthorization:
       type: object
       properties:
-        id: { type: integer }
-        invoice_id: { type: integer }
+        id: { type: string, format: uuid }
+        invoice_id: { type: string, format: uuid }
         match_run_id:
-          type: integer
+          type: string
+          format: uuid
           description: Exécution dont l'autorisation est issue — toute autorisation est traçable jusqu'à sa décision.
         amount:
           type: number
@@ -2646,7 +2650,7 @@ components:
           type: object
           nullable: true
           properties:
-            id: { type: integer }
+            id: { type: string, format: uuid }
             name: { type: string }
 
     DashboardSummary:

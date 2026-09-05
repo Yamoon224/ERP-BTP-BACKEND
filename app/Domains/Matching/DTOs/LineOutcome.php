@@ -16,8 +16,8 @@ final readonly class LineOutcome
      * @param  array<string, mixed>  $evidence
      */
     public function __construct(
-        public int $invoiceLineId,
-        public ?int $purchaseOrderLineId,
+        public string $invoiceLineId,
+        public ?string $purchaseOrderLineId,
         public MatchStatus $status,
         public float $quantityInvoiced,
         public float $quantityMatched,

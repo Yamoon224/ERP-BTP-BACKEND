@@ -18,7 +18,7 @@ final readonly class InvoiceLineInput
      *                                                    re-signaler.
      */
     public function __construct(
-        public int $id,
+        public string $id,
         public int $lineNumber,
         public string $description,
         public float $quantity,

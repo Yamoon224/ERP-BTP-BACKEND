@@ -3,8 +3,8 @@
 namespace App\Domains\Users\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
-use Spatie\Permission\Models\Role;
 
 /**
  * Roles assignables, avec leurs permissions.

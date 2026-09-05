@@ -43,13 +43,13 @@ final class InvoiceService
         return $this->invoices->paginate($filters, $perPage);
     }
 
-    public function find(int $id): Invoice
+    public function find(string $id): Invoice
     {
         return $this->invoices->findOrFail($id);
     }
 
     /**
-     * @param  array{reference: string, purchase_order_id: int, currency?: string|null, invoice_date: string, due_date?: string|null, lines: list<array<string, mixed>>}  $data
+     * @param  array{reference: string, purchase_order_id: string, currency?: string|null, invoice_date: string, due_date?: string|null, lines: list<array<string, mixed>>}  $data
      *
      * @throws DuplicateInvoiceException
      * @throws PurchaseOrderNotOpenException
@@ -168,8 +168,8 @@ final class InvoiceService
             // Une ligne sans rattachement est acceptée volontairement : le
             // moteur doit pouvoir la signaler comme écart. En revanche, une
             // ligne rattachée à un AUTRE bon de commande est un refus net.
-            if ($lineId !== null && ! in_array((int) $lineId, $validIds, true)) {
-                throw InvoiceLineNotOnPurchaseOrderException::make((int) $lineId, $purchaseOrder->reference);
+            if ($lineId !== null && ! in_array((string) $lineId, $validIds, true)) {
+                throw InvoiceLineNotOnPurchaseOrderException::make((string) $lineId, $purchaseOrder->reference);
             }
         }
     }

@@ -15,13 +15,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('match_exceptions', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('match_run_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('match_run_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('invoice_id')->constrained()->cascadeOnDelete();
             // Nullable : un ecart peut porter sur la facture entiere
             // (fournisseur, devise) et non sur une ligne precise.
-            $table->foreignId('invoice_line_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->foreignId('match_line_result_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignUuid('invoice_line_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignUuid('match_line_result_id')->nullable()->constrained()->cascadeOnDelete();
 
             $table->string('type');
             $table->string('severity');
@@ -29,7 +29,7 @@ return new class extends Migration
             $table->json('context');
 
             $table->string('review_status')->default(ReviewStatus::Open->value);
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_note')->nullable();
 

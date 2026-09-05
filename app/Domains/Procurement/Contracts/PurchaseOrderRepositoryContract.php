@@ -13,10 +13,10 @@ interface PurchaseOrderRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): PurchaseOrder;
+    public function findOrFail(string $id): PurchaseOrder;
 
     /** Charge le PO avec tout ce dont le rapprochement a besoin. */
-    public function findWithLinesOrFail(int $id): PurchaseOrder;
+    public function findWithLinesOrFail(string $id): PurchaseOrder;
 
     /**
      * @param  array<string, mixed>  $attributes

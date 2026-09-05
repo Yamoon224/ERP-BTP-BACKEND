@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domains\Shared\Enums\Currency;
 use App\Domains\Shared\Enums\ExchangeRateSource;
 use Database\Factories\ExchangeRateFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -12,7 +13,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
+ * @property string $id
  * @property Currency $base_currency
  * @property Currency $quote_currency
  * @property numeric-string $rate
@@ -24,7 +25,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class ExchangeRate extends Model
 {
     /** @use HasFactory<ExchangeRateFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = ['base_currency', 'quote_currency', 'rate', 'source', 'effective_from'];
 

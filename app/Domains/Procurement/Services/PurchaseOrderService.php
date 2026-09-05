@@ -27,13 +27,13 @@ final class PurchaseOrderService
         return $this->purchaseOrders->paginate($filters, $perPage);
     }
 
-    public function find(int $id): PurchaseOrder
+    public function find(string $id): PurchaseOrder
     {
         return $this->purchaseOrders->findWithLinesOrFail($id);
     }
 
     /**
-     * @param  array{reference: string, supplier_id: int, project_id: int, currency?: string|null, ordered_at: string, notes?: string|null, lines: list<array<string, mixed>>}  $data
+     * @param  array{reference: string, supplier_id: string, project_id: string, currency?: string|null, ordered_at: string, notes?: string|null, lines: list<array<string, mixed>>}  $data
      */
     public function create(array $data, User $creator): PurchaseOrder
     {

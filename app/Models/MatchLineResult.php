@@ -4,16 +4,17 @@ namespace App\Models;
 
 use App\Domains\Matching\Enums\MatchStatus;
 use Database\Factories\MatchLineResultFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * @property int $id
- * @property int $match_run_id
- * @property int $invoice_line_id
- * @property int|null $purchase_order_line_id
+ * @property string $id
+ * @property string $match_run_id
+ * @property string $invoice_line_id
+ * @property string|null $purchase_order_line_id
  * @property MatchStatus $status
  * @property numeric-string $quantity_invoiced
  * @property numeric-string $quantity_matched
@@ -32,7 +33,7 @@ use Illuminate\Support\Carbon;
 class MatchLineResult extends Model
 {
     /** @use HasFactory<MatchLineResultFactory> */
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
         'match_run_id',

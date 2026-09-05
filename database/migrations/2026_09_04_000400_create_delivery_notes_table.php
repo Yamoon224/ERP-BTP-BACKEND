@@ -10,13 +10,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('delivery_notes', function (Blueprint $table): void {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('reference', 100);
-            $table->foreignId('purchase_order_id')->constrained()->restrictOnDelete();
-            $table->foreignId('supplier_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('purchase_order_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('supplier_id')->constrained()->restrictOnDelete();
             $table->string('status')->default(DeliveryNoteStatus::Draft->value);
             $table->date('received_at');
-            $table->foreignId('received_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('received_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
 
@@ -28,9 +28,9 @@ return new class extends Migration
         });
 
         Schema::create('delivery_note_lines', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('delivery_note_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('purchase_order_line_id')->constrained()->restrictOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('delivery_note_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('purchase_order_line_id')->constrained()->restrictOnDelete();
             $table->decimal('quantity_received', 15, 3);
             $table->timestamps();
 

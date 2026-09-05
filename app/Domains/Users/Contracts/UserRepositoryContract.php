@@ -12,7 +12,7 @@ interface UserRepositoryContract
      */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
-    public function findOrFail(int $id): User;
+    public function findOrFail(string $id): User;
 
     /** @param  array<string, mixed>  $attributes */
     public function create(array $attributes): User;

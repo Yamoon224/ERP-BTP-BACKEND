@@ -11,9 +11,9 @@ namespace App\Domains\Matching\Contracts;
 interface ConsumedQuantityReaderContract
 {
     /**
-     * @param  int|null  $excludingInvoiceId  Facture en cours de rapprochement, exclue pour que
-     *                                        rejouer un rapprochement ne se consomme pas lui-meme.
-     * @return array<int, float> purchase_order_line_id => quantite deja rapprochee
+     * @param  string|null  $excludingInvoiceId  Facture en cours de rapprochement, exclue pour que
+     *                                           rejouer un rapprochement ne se consomme pas lui-meme.
+     * @return array<string, float> purchase_order_line_id => quantite deja rapprochee
      */
-    public function consumedQuantitiesForPurchaseOrder(int $purchaseOrderId, ?int $excludingInvoiceId = null): array;
+    public function consumedQuantitiesForPurchaseOrder(string $purchaseOrderId, ?string $excludingInvoiceId = null): array;
 }

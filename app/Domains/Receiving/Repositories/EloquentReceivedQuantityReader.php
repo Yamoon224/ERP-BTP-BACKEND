@@ -15,7 +15,7 @@ use App\Models\DeliveryNoteLine;
  */
 final class EloquentReceivedQuantityReader implements ReceivedQuantityReaderContract
 {
-    public function receivedQuantitiesForPurchaseOrder(int $purchaseOrderId): array
+    public function receivedQuantitiesForPurchaseOrder(string $purchaseOrderId): array
     {
         return DeliveryNoteLine::query()
             ->join('delivery_notes', 'delivery_notes.id', '=', 'delivery_note_lines.delivery_note_id')

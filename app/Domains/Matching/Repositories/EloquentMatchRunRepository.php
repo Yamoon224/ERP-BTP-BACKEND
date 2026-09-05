@@ -73,7 +73,7 @@ final class EloquentMatchRunRepository implements MatchRunRepositoryContract
         return $matchRun;
     }
 
-    public function findOrFail(int $id): MatchRun
+    public function findOrFail(string $id): MatchRun
     {
         return MatchRun::with([
             'actor',
@@ -86,7 +86,7 @@ final class EloquentMatchRunRepository implements MatchRunRepositoryContract
         ])->findOrFail($id);
     }
 
-    public function latestForInvoice(int $invoiceId): ?MatchRun
+    public function latestForInvoice(string $invoiceId): ?MatchRun
     {
         return MatchRun::with(['actor', 'lineResults', 'exceptions'])
             ->where('invoice_id', $invoiceId)
@@ -95,7 +95,7 @@ final class EloquentMatchRunRepository implements MatchRunRepositoryContract
     }
 
     /** @return LengthAwarePaginator<int, MatchRun> */
-    public function paginateForInvoice(int $invoiceId, array $filters = [], int $perPage = 10): LengthAwarePaginator
+    public function paginateForInvoice(string $invoiceId, array $filters = [], int $perPage = 10): LengthAwarePaginator
     {
         return MatchRun::query()
             ->with(['actor', 'paymentAuthorization'])
@@ -152,7 +152,7 @@ final class EloquentMatchRunRepository implements MatchRunRepositoryContract
         ]);
     }
 
-    /** @param  array<int, MatchLineResult>  $lineResultsByInvoiceLine */
+    /** @param  array<string, MatchLineResult>  $lineResultsByInvoiceLine */
     private function recordException(
         MatchRun $matchRun,
         Invoice $invoice,

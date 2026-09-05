@@ -2,9 +2,9 @@
 
 namespace App\Domains\Audit\Http\Resources;
 
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Spatie\Activitylog\Models\Activity;
 
 /**
  * Une entree du journal, rendue lisible.
@@ -42,7 +42,7 @@ class AuditLogResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        /** @var Activity $activity */
+        /** @var ActivityLog $activity */
         $activity = $this->resource;
 
         return [

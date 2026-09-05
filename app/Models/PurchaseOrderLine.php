@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\PurchaseOrderLineFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,8 +13,8 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
- * @property int $purchase_order_id
+ * @property string $id
+ * @property string $purchase_order_id
  * @property int $line_number
  * @property string $item_code
  * @property string $description
@@ -27,7 +28,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class PurchaseOrderLine extends Model
 {
     /** @use HasFactory<PurchaseOrderLineFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = [
         'purchase_order_id',

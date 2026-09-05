@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\SupplierFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
+ * @property string $id
  * @property string $code
  * @property string $name
  * @property string|null $vat_number
@@ -23,7 +24,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class Supplier extends Model
 {
     /** @use HasFactory<SupplierFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = ['code', 'name', 'vat_number', 'email', 'is_active'];
 

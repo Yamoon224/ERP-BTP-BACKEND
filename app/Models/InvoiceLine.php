@@ -3,15 +3,16 @@
 namespace App\Models;
 
 use Database\Factories\InvoiceLineFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * @property int $id
- * @property int $invoice_id
- * @property int|null $purchase_order_line_id
+ * @property string $id
+ * @property string $invoice_id
+ * @property string|null $purchase_order_line_id
  * @property int $line_number
  * @property string $description
  * @property numeric-string $quantity
@@ -24,7 +25,7 @@ use Illuminate\Support\Carbon;
 class InvoiceLine extends Model
 {
     /** @use HasFactory<InvoiceLineFactory> */
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
         'invoice_id',

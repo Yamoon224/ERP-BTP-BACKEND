@@ -6,6 +6,7 @@ use App\Domains\Procurement\Enums\PurchaseOrderStatus;
 use App\Domains\Shared\Enums\Currency;
 use Database\Factories\PurchaseOrderFactory;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,15 +16,15 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
+ * @property string $id
  * @property string $reference
- * @property int $supplier_id
- * @property int $project_id
+ * @property string $supplier_id
+ * @property string $project_id
  * @property Currency $currency
  * @property PurchaseOrderStatus $status
  * @property Carbon $ordered_at
  * @property string|null $notes
- * @property int|null $created_by
+ * @property string|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Supplier $supplier
@@ -34,7 +35,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class PurchaseOrder extends Model
 {
     /** @use HasFactory<PurchaseOrderFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = [
         'reference',

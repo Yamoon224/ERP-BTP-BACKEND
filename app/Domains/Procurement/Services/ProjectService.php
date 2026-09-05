@@ -19,7 +19,7 @@ final class ProjectService
         return $this->projects->paginate($filters, $perPage);
     }
 
-    public function find(int $id): Project
+    public function find(string $id): Project
     {
         return $this->projects->findOrFail($id);
     }

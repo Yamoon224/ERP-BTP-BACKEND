@@ -4,8 +4,8 @@ namespace App\Domains\Audit\Repositories;
 
 use App\Domains\Audit\Contracts\AuditLogRepositoryContract;
 use App\Domains\Shared\Support\Sort;
+use App\Models\ActivityLog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Spatie\Activitylog\Models\Activity;
 
 /**
  * Lecture seule du journal d'activite.
@@ -26,10 +26,10 @@ final class EloquentAuditLogRepository implements AuditLogRepositoryContract
         'created_at' => 'created_at',
     ];
 
-    /** @return LengthAwarePaginator<int, Activity> */
+    /** @return LengthAwarePaginator<int, ActivityLog> */
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator
     {
-        return Activity::query()
+        return ActivityLog::query()
             ->with('causer')
             ->when($filters['event'] ?? null, fn ($query, $event) => $query->where('event', $event))
             ->when(
@@ -59,22 +59,22 @@ final class EloquentAuditLogRepository implements AuditLogRepositoryContract
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): Activity
+    public function findOrFail(string $id): ActivityLog
     {
-        return Activity::with('causer')->findOrFail($id);
+        return ActivityLog::with('causer')->findOrFail($id);
     }
 
     /** @return array{subject_types: list<string>, events: list<string>} */
     public function facets(): array
     {
         return [
-            'subject_types' => Activity::query()
+            'subject_types' => ActivityLog::query()
                 ->whereNotNull('subject_type')
                 ->distinct()
                 ->orderBy('subject_type')
                 ->pluck('subject_type')
                 ->all(),
-            'events' => Activity::query()
+            'events' => ActivityLog::query()
                 ->whereNotNull('event')
                 ->distinct()
                 ->orderBy('event')

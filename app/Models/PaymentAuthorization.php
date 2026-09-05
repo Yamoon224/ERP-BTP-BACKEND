@@ -6,6 +6,7 @@ use App\Domains\Payments\Enums\PaymentAuthorizationStatus;
 use App\Domains\Shared\Enums\Currency;
 use Database\Factories\PaymentAuthorizationFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,9 +15,9 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @property int $id
- * @property int $invoice_id
- * @property int $match_run_id
+ * @property string $id
+ * @property string $invoice_id
+ * @property string $match_run_id
  * @property Currency $currency
  * @property Currency $base_currency
  * @property numeric-string $base_amount
@@ -27,7 +28,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $settled_at
  * @property string|null $payment_reference
  * @property string|null $payment_method
- * @property int|null $settled_by
+ * @property string|null $settled_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Invoice $invoice
@@ -37,7 +38,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class PaymentAuthorization extends Model
 {
     /** @use HasFactory<PaymentAuthorizationFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = [
         'invoice_id',

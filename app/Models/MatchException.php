@@ -7,6 +7,7 @@ use App\Domains\Matching\Enums\DiscrepancyType;
 use App\Domains\Matching\Enums\ReviewStatus;
 use Database\Factories\MatchExceptionFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,17 +20,17 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * trace ici (qui, quand, avec quel commentaire) plutot que dans un journal
  * separe : la decision et son motif restent attaches a l'ecart.
  *
- * @property int $id
- * @property int $match_run_id
- * @property int $invoice_id
- * @property int|null $invoice_line_id
- * @property int|null $match_line_result_id
+ * @property string $id
+ * @property string $match_run_id
+ * @property string $invoice_id
+ * @property string|null $invoice_line_id
+ * @property string|null $match_line_result_id
  * @property DiscrepancyType $type
  * @property DiscrepancySeverity $severity
  * @property string $message
  * @property array<string, mixed> $context
  * @property ReviewStatus $review_status
- * @property int|null $reviewed_by
+ * @property string|null $reviewed_by
  * @property Carbon|null $reviewed_at
  * @property string|null $review_note
  * @property Carbon|null $created_at
@@ -43,7 +44,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class MatchException extends Model
 {
     /** @use HasFactory<MatchExceptionFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $fillable = [
         'match_run_id',

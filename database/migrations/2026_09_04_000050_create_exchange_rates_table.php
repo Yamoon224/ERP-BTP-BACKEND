@@ -19,7 +19,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('exchange_rates', function (Blueprint $table): void {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->char('base_currency', 3);
             $table->char('quote_currency', 3);
 

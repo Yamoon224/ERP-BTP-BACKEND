@@ -59,12 +59,12 @@ final class EloquentPurchaseOrderRepository implements PurchaseOrderRepositoryCo
             ->withQueryString();
     }
 
-    public function findOrFail(int $id): PurchaseOrder
+    public function findOrFail(string $id): PurchaseOrder
     {
         return PurchaseOrder::with(['supplier', 'project', 'creator'])->findOrFail($id);
     }
 
-    public function findWithLinesOrFail(int $id): PurchaseOrder
+    public function findWithLinesOrFail(string $id): PurchaseOrder
     {
         return PurchaseOrder::with([
             'supplier',

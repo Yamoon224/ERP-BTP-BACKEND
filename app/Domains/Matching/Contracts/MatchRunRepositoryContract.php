@@ -17,14 +17,14 @@ interface MatchRunRepositoryContract
      */
     public function record(Invoice $invoice, MatchOutcome $outcome, ?User $actor, string $trigger): MatchRun;
 
-    public function findOrFail(int $id): MatchRun;
+    public function findOrFail(string $id): MatchRun;
 
-    public function latestForInvoice(int $invoiceId): ?MatchRun;
+    public function latestForInvoice(string $invoiceId): ?MatchRun;
 
     /** @param  array<string, mixed>  $filters
      * @return LengthAwarePaginator<int, MatchRun>
      */
-    public function paginateForInvoice(int $invoiceId, array $filters = [], int $perPage = 10): LengthAwarePaginator;
+    public function paginateForInvoice(string $invoiceId, array $filters = [], int $perPage = 10): LengthAwarePaginator;
 
     /**
      * Toutes les executions, toutes factures confondues.

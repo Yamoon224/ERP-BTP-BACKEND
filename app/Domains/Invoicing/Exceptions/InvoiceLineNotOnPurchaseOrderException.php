@@ -6,7 +6,7 @@ use App\Domains\Shared\Exceptions\DomainException;
 
 final class InvoiceLineNotOnPurchaseOrderException extends DomainException
 {
-    public static function make(int $purchaseOrderLineId, string $purchaseOrderReference): self
+    public static function make(string $purchaseOrderLineId, string $purchaseOrderReference): self
     {
         return new self(
             message: "La ligne de commande #{$purchaseOrderLineId} n appartient pas au bon de commande {$purchaseOrderReference}.",
