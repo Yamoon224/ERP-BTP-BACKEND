@@ -1,0 +1,2091 @@
+openapi: 3.0.3
+
+info:
+  title: ERP BTP — API de rapprochement à 3 voies
+  version: "1.0.0"
+  description: |
+    API du moteur de rapprochement à 3 voies (bon de commande / bon de livraison /
+    facture) d'un ERP interne BTP.
+
+    ## Principe du contrôle
+
+    Un paiement n'est autorisé que pour la **portion** d'une facture couverte
+    simultanément par :
+
+    1. une quantité **commandée** sur un bon de commande ouvert ;
+    2. une quantité **réceptionnée** sur un bon de livraison **accepté** ;
+    3. un **prix unitaire** conforme au bon de commande, dans la tolérance configurée.
+
+    Toute portion non couverte n'ouvre aucun droit à paiement. Tout écart hors
+    tolérance est **signalé pour arbitrage humain** — jamais accepté ni rejeté
+    silencieusement.
+
+    ## Traçabilité
+
+    Chaque décision produit une exécution (`match_run`) immuable qui archive
+    **qui** a décidé (moteur ou utilisateur nommé), **quand**, avec quelle
+    **version du moteur**, quelles **tolérances**, et — au niveau de chaque
+    ligne — la **preuve chiffrée** (`evidence`) ayant servi au calcul.
+    Rejouer un rapprochement crée une nouvelle exécution ; aucune n'est
+    jamais écrasée.
+
+    ## Convention de réponse
+
+    - Ressource unique : `{ "data": { ... } }`
+    - Collection paginée : `{ "data": [ ... ], "links": {...}, "meta": {...} }`
+    - Erreur : `{ "message": string, "error_code": string, "context": object }`,
+      plus `errors` (par champ) pour les erreurs de validation.
+
+    ## Authentification
+
+    Token Bearer (Laravel Sanctum), obtenu via `POST /api/login`.
+    Chaque endpoint exige en plus une permission fine (voir la description de
+    l'endpoint). La séparation des tâches est volontaire : le comptable qui
+    saisit les factures ne peut pas arbitrer les écarts qu'elles déclenchent.
+  contact:
+    name: Équipe ERP
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000/api
+    description: Environnement local
+  - url: "{scheme}://{host}/api"
+    description: Environnement paramétrable
+    variables:
+      scheme:
+        default: https
+        enum: [http, https]
+      host:
+        default: localhost:8000
+
+tags:
+  - name: Authentification
+    description: Obtention et révocation des tokens d'accès.
+  - name: Référentiel
+    description: Fournisseurs et chantiers.
+  - name: Bons de commande
+    description: Engagement d'achat — la référence en quantité et en prix.
+  - name: Bons de livraison
+    description: Réception physique — la preuve que la marchandise existe.
+  - name: Factures
+    description: Créances fournisseurs, rapprochées dès leur soumission.
+  - name: Rapprochement
+    description: Exécutions du moteur et piste d'audit.
+  - name: Écarts
+    description: File de revue humaine des écarts détectés.
+  - name: Paiements
+    description: Autorisations de paiement, et constat de leur règlement.
+  - name: Comptes
+    description: Compte de l'utilisateur courant et administration des utilisateurs.
+  - name: Supervision
+    description: Indicateurs de pilotage et sonde de santé.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Supervision]
+      summary: Sonde de santé
+      description: |
+        Vérifie que l'application répond **et** que sa base est joignable.
+        Consommée par les tests de déploiement et l'orchestrateur.
+      security: []
+      responses:
+        "200":
+          description: Application et base opérationnelles.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Application démarrée mais base injoignable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /login:
+    post:
+      tags: [Authentification]
+      summary: Ouvrir une session et obtenir un token
+      description: |
+        Limité à 6 tentatives par minute et par IP. Le message d'erreur est
+        identique que le compte existe ou non, pour ne pas transformer le
+        formulaire en oracle d'énumération de comptes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: controleur@erp.test }
+                password: { type: string, format: password, example: password }
+                device_name: { type: string, maxLength: 100, example: web }
+      responses:
+        "200":
+          description: Token émis.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string, example: "3|Xk9..." }
+                      user: { $ref: "#/components/schemas/User" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /logout:
+    post:
+      tags: [Authentification]
+      summary: Révoquer le token courant
+      responses:
+        "204": { description: Token révoqué. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /me:
+    get:
+      tags: [Authentification]
+      summary: Profil, rôles et permissions de l'utilisateur courant
+      responses:
+        "200":
+          description: Profil courant.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+    patch:
+      tags: [Comptes]
+      summary: Modifier ses propres informations
+      description: |
+        Aucune permission requise : la route n'agit que sur l'appelant. Les
+        rôles ne sont volontairement pas acceptés ici — personne ne s'auto-promeut.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileInput" }
+      responses:
+        "200":
+          description: Profil mis à jour.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /me/password:
+    put:
+      tags: [Comptes]
+      summary: Changer son mot de passe
+      description: |
+        Le mot de passe actuel est exigé bien que l'appelant soit déjà
+        authentifié : sans lui, un token volé suffirait à verrouiller le compte
+        de sa victime. Les **autres** sessions sont fermées après le changement,
+        le token courant survit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChangeInput" }
+      responses:
+        "200":
+          description: Mot de passe mis à jour, autres sessions révoquées.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message: { type: string }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /users:
+    get:
+      tags: [Comptes]
+      summary: Lister les comptes utilisateurs
+      description: "Permission requise : `users.view`."
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: role
+          in: query
+          schema: { type: string, enum: [admin, buyer, warehouse, accountant, controller] }
+          description: Filtre sur le rôle attribué.
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Direction"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de comptes.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/AdminUser" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Comptes]
+      summary: Créer un compte
+      description: "Permission requise : `users.manage`. Au moins un rôle est exigé."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserInput" }
+      responses:
+        "201":
+          description: Compte créé.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminUser" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /users/{user}:
+    parameters:
+      - name: user
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant du compte.
+    get:
+      tags: [Comptes]
+      summary: Consulter un compte
+      description: "Permission requise : `users.view`."
+      responses:
+        "200":
+          description: Compte.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminUser" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Comptes]
+      summary: Modifier un compte
+      description: |
+        Permission requise : `users.manage`. Un `password` absent ou `null`
+        laisse le mot de passe existant inchangé.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdateInput" }
+      responses:
+        "200":
+          description: Compte mis à jour.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminUser" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Comptes]
+      summary: Supprimer un compte
+      description: |
+        Permission requise : `users.manage`.
+
+        Deux refus métier, tous deux en 409 : supprimer son propre compte
+        (`cannot_delete_self`) et supprimer le dernier administrateur
+        (`last_administrator`) — l'application deviendrait inadministrable.
+      responses:
+        "204": { description: Compte supprimé. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Suppression refusée (`cannot_delete_self`, `last_administrator`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /roles:
+    get:
+      tags: [Comptes]
+      summary: Lister les rôles assignables et leurs permissions
+      description: |
+        Permission requise : `users.view`. Sert à montrer ce qu'un rôle
+        autorise **avant** de l'attribuer.
+      responses:
+        "200":
+          description: Rôles disponibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Role" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /suppliers:
+    get:
+      tags: [Référentiel]
+      summary: Lister les fournisseurs
+      description: "Permission requise : `procurement.view`."
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+          description: Filtre sur les fournisseurs actifs.
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de fournisseurs.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Supplier" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Référentiel]
+      summary: Créer un fournisseur
+      description: "Permission requise : `procurement.manage`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierInput" }
+      responses:
+        "201":
+          description: Fournisseur créé.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Supplier" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /suppliers/{supplier}:
+    parameters:
+      - name: supplier
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant du fournisseur.
+    get:
+      tags: [Référentiel]
+      summary: Consulter un fournisseur
+      description: "Permission requise : `procurement.view`."
+      responses:
+        "200":
+          description: Fournisseur.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Supplier" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Référentiel]
+      summary: Modifier un fournisseur
+      description: "Permission requise : `procurement.manage`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierInput" }
+      responses:
+        "200":
+          description: Fournisseur mis à jour.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Supplier" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /projects:
+    get:
+      tags: [Référentiel]
+      summary: Lister les chantiers
+      description: "Permission requise : `procurement.view`."
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de chantiers.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Référentiel]
+      summary: Créer un chantier
+      description: "Permission requise : `procurement.manage`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectInput" }
+      responses:
+        "201":
+          description: Chantier créé.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /projects/{project}:
+    parameters:
+      - name: project
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Référentiel]
+      summary: Consulter un chantier
+      description: "Permission requise : `procurement.view`."
+      responses:
+        "200":
+          description: Chantier.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Référentiel]
+      summary: Modifier un chantier
+      description: "Permission requise : `procurement.manage`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectInput" }
+      responses:
+        "200":
+          description: Chantier mis à jour.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /purchase-orders:
+    get:
+      tags: [Bons de commande]
+      summary: Lister les bons de commande
+      description: "Permission requise : `procurement.view`."
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: supplier_id
+          in: query
+          schema: { type: integer }
+        - name: project_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/PurchaseOrderStatus" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de bons de commande.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/PurchaseOrder" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Bons de commande]
+      summary: Créer un bon de commande
+      description: |
+        Permission requise : `procurement.manage`.
+
+        Les lignes sont numérotées automatiquement dans l'ordre de saisie : ce
+        numéro est la référence stable citée ensuite dans les messages d'écart.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PurchaseOrderInput" }
+      responses:
+        "201":
+          description: Bon de commande créé, au statut `open`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/PurchaseOrder" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /purchase-orders/{purchaseOrder}:
+    parameters:
+      - name: purchaseOrder
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Bons de commande]
+      summary: Consulter un bon de commande et ses lignes
+      description: "Permission requise : `procurement.view`."
+      responses:
+        "200":
+          description: Bon de commande avec ses lignes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/PurchaseOrder" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /delivery-notes:
+    get:
+      tags: [Bons de livraison]
+      summary: Lister les bons de livraison
+      description: "Permission requise : `receiving.view`."
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: purchase_order_id
+          in: query
+          schema: { type: integer }
+        - name: supplier_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/DeliveryNoteStatus" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de bons de livraison.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/DeliveryNote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Bons de livraison]
+      summary: Enregistrer une réception
+      description: |
+        Permission requise : `receiving.manage`.
+
+        Le bon est créé au statut `draft` : **il ne compte pas encore** comme
+        marchandise reçue et n'ouvre aucun droit à paiement. Le fournisseur est
+        repris du bon de commande et ne peut pas être fourni par l'appelant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeliveryNoteInput" }
+      responses:
+        "201":
+          description: Bon de livraison enregistré au statut `draft`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/DeliveryNote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: |
+            Bon de commande clôturé ou annulé (`purchase_order_not_open`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: |
+            Validation échouée, ou ligne rattachée à un autre bon de commande
+            (`delivery_line_not_on_purchase_order`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  /delivery-notes/{deliveryNote}:
+    parameters:
+      - name: deliveryNote
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Bons de livraison]
+      summary: Consulter un bon de livraison
+      description: "Permission requise : `receiving.view`."
+      responses:
+        "200":
+          description: Bon de livraison avec ses lignes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/DeliveryNote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /delivery-notes/{deliveryNote}/review:
+    parameters:
+      - name: deliveryNote
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [Bons de livraison]
+      summary: Contrôler la réception (accepter ou refuser)
+      description: |
+        Permission requise : `receiving.manage`.
+
+        **Accepter** rend les quantités opposables au paiement, met à jour
+        l'avancement du bon de commande, et **relance automatiquement le
+        rapprochement** de toutes les factures du même bon de commande : une
+        facture reçue avant la marchandise devient payable sans intervention.
+
+        Un bon déjà contrôlé ne peut plus changer de statut : rouvrir une
+        quantité reçue déplacerait le plafond de paiement d'une facture déjà
+        rapprochée.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+      responses:
+        "200":
+          description: Réception contrôlée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/DeliveryNote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Bon déjà contrôlé (`delivery_note_already_reviewed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /invoices:
+    get:
+      tags: [Factures]
+      summary: Lister les factures
+      description: "Permission requise : `invoicing.view`."
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: supplier_id
+          in: query
+          schema: { type: integer }
+        - name: purchase_order_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/InvoiceStatus" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de factures.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Invoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Factures]
+      summary: Soumettre une facture (déclenche le rapprochement)
+      description: |
+        Permission requise : `invoicing.manage`.
+
+        La facture est **rapprochée immédiatement** : la réponse contient déjà
+        le verdict (`latest_match_run`) et, le cas échéant, le montant autorisé
+        au paiement (`payment_authorization`).
+
+        Deux champs sont volontairement **refusés en entrée** :
+        - `supplier_id`, déduit du bon de commande — sinon la comparaison des
+          fournisseurs porterait sur une donnée choisie par l'émetteur ;
+        - `total_amount`, recalculé depuis les lignes — un en-tête qui annonce
+          un montant différent de la somme de ses lignes est le scénario de
+          fraude le plus banal.
+
+        Une ligne peut être envoyée **sans** `purchase_order_line_id` : elle est
+        acceptée puis signalée comme écart, plutôt que rejetée à la saisie — une
+        fraude refusée à la porte ne laisse aucune trace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceInput" }
+      responses:
+        "201":
+          description: Facture enregistrée et rapprochée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Invoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: |
+            Référence déjà soumise pour ce fournisseur (`duplicate_invoice`) —
+            barrière anti-double paiement — ou bon de commande fermé
+            (`purchase_order_not_open`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: |
+            Validation échouée, ou ligne rattachée à un autre bon de commande
+            (`invoice_line_not_on_purchase_order`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  /invoices/{invoice}:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+    get:
+      tags: [Factures]
+      summary: Consulter une facture, son dernier rapprochement et son autorisation
+      description: "Permission requise : `invoicing.view`."
+      responses:
+        "200":
+          description: Facture complète.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Invoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /invoices/{invoice}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+    post:
+      tags: [Factures]
+      summary: Annuler une facture
+      description: |
+        Permission requise : `invoicing.manage`.
+
+        Révoque l'autorisation de paiement en cours et **libère les quantités**
+        que la facture retenait sur le bon de commande : une facture
+        rectificative pourra les consommer.
+      responses:
+        "200":
+          description: Facture annulée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Invoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Facture déjà annulée (`invoice_already_cancelled`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /invoices/{invoice}/match-runs:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+    get:
+      tags: [Rapprochement]
+      summary: Historique des rapprochements d'une facture
+      description: |
+        Permission requise : `matching.view`.
+
+        Piste d'audit complète, du plus récent au plus ancien. Aucune exécution
+        n'est jamais écrasée ni supprimée.
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/MatchStatus" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée d'exécutions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/MatchRun" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Rapprochement]
+      summary: Rejouer le rapprochement d'une facture
+      description: |
+        Permission requise : `matching.run`.
+
+        Crée une **nouvelle** exécution attribuée à l'utilisateur appelant, et
+        remplace l'autorisation de paiement précédente (l'ancienne passe au
+        statut `superseded` et reste consultable).
+      responses:
+        "201":
+          description: Nouvelle exécution enregistrée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/MatchRun" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            Facture annulée (`invoice_cancelled`) ou en litige après arbitrage
+            défavorable (`invoice_disputed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /invoices/{invoice}/match-runs/{matchRun}:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+      - name: matchRun
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant de l'exécution.
+    get:
+      tags: [Rapprochement]
+      summary: Détail d'une exécution, ligne par ligne
+      description: |
+        Permission requise : `matching.view`.
+
+        Contient la preuve chiffrée (`evidence`) de chaque ligne : quantités
+        commandée / reçue / déjà rapprochée, seuils appliqués, prix comparés.
+        C'est la réponse à « sur la base de quelles données cette décision
+        a-t-elle été prise ».
+      responses:
+        "200":
+          description: Exécution détaillée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/MatchRun" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Exécution inconnue, ou n'appartenant pas à cette facture.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /match-exceptions:
+    get:
+      tags: [Écarts]
+      summary: File de revue des écarts
+      description: "Permission requise : `matching.view`. Les écarts ouverts sont présentés en premier."
+      parameters:
+        - name: review_status
+          in: query
+          schema: { $ref: "#/components/schemas/ReviewStatus" }
+        - name: type
+          in: query
+          schema: { $ref: "#/components/schemas/DiscrepancyType" }
+        - name: severity
+          in: query
+          schema: { $ref: "#/components/schemas/DiscrepancySeverity" }
+        - name: invoice_id
+          in: query
+          schema: { type: integer }
+        - name: supplier_id
+          in: query
+          schema: { type: integer }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée d'écarts.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/MatchException" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /match-exceptions/{matchException}:
+    parameters:
+      - name: matchException
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Écarts]
+      summary: Consulter un écart et son contexte chiffré
+      description: "Permission requise : `matching.view`."
+      responses:
+        "200":
+          description: Écart.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/MatchException" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /match-exceptions/{matchException}/review:
+    parameters:
+      - name: matchException
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [Écarts]
+      summary: Arbitrer un écart
+      description: |
+        Permission requise : `matching.review` — la plus sensible du système,
+        c'est le seul geste humain capable de débloquer un paiement.
+
+        - **`approved`** : l'écart est mémorisé comme dérogation et le
+          rapprochement est **rejoué**. C'est le moteur, et lui seul, qui
+          recalcule le montant payable ; l'exécution produite porte le nom du
+          relecteur. Un arbitrage ne peut donc jamais « écrire » un montant à
+          la main.
+        - **`rejected`** : la facture passe en litige, l'autorisation en cours
+          est révoquée, et le circuit automatique s'arrête (`match_run` vaut
+          `null`). La facture doit être corrigée à la source.
+
+        Les écarts non dérogeables (fournisseur, devise, bon de commande fermé,
+        ligne hors commande) continuent de bloquer même après un avis
+        favorable : voir `is_overridable`.
+
+        Le motif (`note`) est **obligatoire** — un arbitrage sans justification
+        est intraçable a posteriori.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, note]
+              properties:
+                decision:
+                  type: string
+                  enum: [approved, rejected]
+                note:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                  example: Hausse contractuelle du ciment validée par le service achats.
+      responses:
+        "200":
+          description: |
+            Écart arbitré. `match_run` porte le rapprochement rejoué en cas
+            d'accord, et vaut `null` en cas de refus.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      exception: { $ref: "#/components/schemas/MatchException" }
+                      match_run:
+                        oneOf:
+                          - $ref: "#/components/schemas/MatchRun"
+                          - type: "null"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Écart déjà arbitré (`exception_already_reviewed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /payment-authorizations:
+    get:
+      tags: [Paiements]
+      summary: Lister les autorisations de paiement
+      description: |
+        Permission requise : `payments.view`.
+
+        Lecture seule : aucune autorisation ne peut être créée par appel direct,
+        elle naît exclusivement d'un rapprochement.
+      parameters:
+        - name: invoice_id
+          in: query
+          schema: { type: integer }
+        - name: supplier_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/PaymentAuthorizationStatus" }
+        - name: settled
+          in: query
+          schema: { type: boolean }
+          description: Absent, tout est renvoyé ; `true` les autorisations réglées, `false` celles restant à régler.
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Direction"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée d'autorisations.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/PaymentAuthorization" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /payment-authorizations/{paymentAuthorization}/settle:
+    parameters:
+      - name: paymentAuthorization
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant de l'autorisation à régler.
+    post:
+      tags: [Paiements]
+      summary: Constater le règlement d'une autorisation
+      description: |
+        Permission requise : `payments.manage`.
+
+        Aucun montant n'est accepté en entrée : celui qui est réglé est celui
+        qu'a calculé le moteur. C'est ce qui empêche ce point d'entrée de
+        devenir une porte dérobée vers un paiement non contrôlé.
+
+        Une autorisation réglée n'est plus ni remplaçable ni révocable : un
+        rapprochement ultérieur en créera une nouvelle sans effacer celle-ci.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentSettlementInput" }
+      responses:
+        "200":
+          description: Règlement enregistré.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/PaymentAuthorization" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Autorisation déjà réglée (`payment_already_settled`) ou non active (`payment_not_active`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /invoices/{invoice}/payment-authorization:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+    get:
+      tags: [Paiements]
+      summary: Autorisation active d'une facture
+      description: |
+        Permission requise : `payments.view`.
+        `data` vaut `null` lorsque rien n'est payable sur cette facture.
+      responses:
+        "200":
+          description: Autorisation active, ou `null`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/PaymentAuthorization"
+                      - type: "null"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /dashboard/matching:
+    get:
+      tags: [Supervision]
+      summary: Indicateurs du contrôle
+      description: |
+        Permission requise : `matching.view`.
+
+        Montant aujourd'hui autorisé, montant bloqué, charge de revue par type
+        et par gravité. Recalculé à la demande : un compteur dénormalisé qui
+        dérive silencieusement serait pire que pas de compteur sur un tableau
+        de bord de contrôle financier.
+      responses:
+        "200":
+          description: Indicateurs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/DashboardSummary" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token Laravel Sanctum obtenu via `POST /api/login`, envoyé dans
+        l'en-tête `Authorization: Bearer {token}`.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+      description: Page demandée.
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+      description: Taille de page.
+    Search:
+      name: search
+      in: query
+      schema: { type: string }
+      description: Recherche textuelle sur la référence ou le libellé.
+    Sort:
+      name: sort
+      in: query
+      schema: { type: string }
+      description: |
+        Clé de tri, choisie dans la liste close acceptée par la ressource. Une
+        clé inconnue est ignorée plutôt que refusée : le nom de colonne SQL
+        n'est jamais construit depuis la requête.
+    Direction:
+      name: direction
+      in: query
+      schema: { type: string, enum: [asc, desc], default: asc }
+      description: Sens du tri, appliqué à `sort`.
+    InvoiceId:
+      name: invoice
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+      description: Identifiant de la facture.
+
+  responses:
+    Unauthenticated:
+      description: Token absent, invalide ou révoqué (`unauthenticated`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Permission insuffisante (`forbidden`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Ressource introuvable (`not_found`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Trop de tentatives, limitation active.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Données invalides (`validation_failed`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ValidationError" }
+
+  schemas:
+    Error:
+      type: object
+      required: [message, error_code]
+      properties:
+        message:
+          type: string
+          description: Message lisible, en français, destiné à l'utilisateur final.
+          example: "La facture FAC-2026-0003 est annulée : elle ne peut plus être rapprochée."
+        error_code:
+          type: string
+          description: |
+            Code applicatif stable, destiné au client. Contrairement au message,
+            il ne change pas avec la formulation.
+          example: invoice_cancelled
+        context:
+          type: object
+          additionalProperties: true
+          description: Données utiles au client pour expliquer ou corriger l'erreur.
+
+    ValidationError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+              example:
+                lines.0.unit_price: ["Le prix unitaire doit être strictement positif."]
+
+    PaginatedEnvelope:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { type: object }
+        links:
+          type: object
+          properties:
+            first: { type: string, nullable: true }
+            last: { type: string, nullable: true }
+            prev: { type: string, nullable: true }
+            next: { type: string, nullable: true }
+        meta:
+          type: object
+          properties:
+            current_page: { type: integer, example: 1 }
+            last_page: { type: integer, example: 4 }
+            per_page: { type: integer, example: 15 }
+            total: { type: integer, example: 52 }
+            from: { type: integer, nullable: true }
+            to: { type: integer, nullable: true }
+            path: { type: string }
+
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        checks:
+          type: object
+          properties:
+            database: { type: string, enum: [ok, unreachable] }
+        matching_engine_version: { type: string, example: "1.0.0" }
+        error: { type: string, nullable: true }
+        timestamp: { type: string, format: date-time }
+
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 5 }
+        name: { type: string, example: Nadia Belkacem }
+        email: { type: string, format: email }
+        roles:
+          type: array
+          items: { type: string, enum: [admin, buyer, warehouse, accountant, controller] }
+        permissions:
+          type: array
+          items: { type: string }
+          example: [matching.view, matching.run, matching.review, payments.view]
+
+    AdminUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            created_at: { type: string, format: date-time, nullable: true }
+
+    Role:
+      type: object
+      properties:
+        name: { type: string, enum: [admin, buyer, warehouse, accountant, controller] }
+        permissions:
+          type: array
+          items: { type: string }
+          example: [invoicing.view, invoicing.manage, matching.run]
+
+    ProfileInput:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string, maxLength: 255 }
+        email: { type: string, format: email, maxLength: 255 }
+
+    PasswordChangeInput:
+      type: object
+      required: [current_password, password, password_confirmation]
+      properties:
+        current_password: { type: string, format: password }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password }
+
+    UserInput:
+      type: object
+      required: [name, email, password, roles]
+      properties:
+        name: { type: string, maxLength: 255 }
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, format: password, minLength: 8 }
+        roles:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [admin, buyer, warehouse, accountant, controller] }
+
+    UserUpdateInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 255 }
+        email: { type: string, format: email, maxLength: 255 }
+        password:
+          type: string
+          format: password
+          minLength: 8
+          nullable: true
+          description: Absent ou `null`, le mot de passe existant est conservé.
+        roles:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [admin, buyer, warehouse, accountant, controller] }
+
+    PaymentSettlementInput:
+      type: object
+      required: [payment_reference]
+      properties:
+        payment_reference:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: Référence du virement, obligatoire — c'est elle qui permet de retrouver le paiement en banque.
+        payment_method:
+          type: string
+          nullable: true
+          enum: [transfer, check, card, cash, direct_debit]
+        settled_at:
+          type: string
+          format: date
+          nullable: true
+          description: Date de valeur ; par défaut, maintenant. Jamais dans le futur.
+
+    Supplier:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string, example: SUP-BETON }
+        name: { type: string, example: Béton Express SAS }
+        vat_number: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time, nullable: true }
+
+    SupplierInput:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 255 }
+        vat_number: { type: string, maxLength: 50, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        is_active: { type: boolean }
+
+    Project:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string, example: CH-A12 }
+        name: { type: string, example: Chantier A12 — Viaduc Nord }
+        client_name: { type: string, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time, nullable: true }
+
+    ProjectInput:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 255 }
+        client_name: { type: string, maxLength: 255, nullable: true }
+        is_active: { type: boolean }
+
+    PurchaseOrderStatus:
+      type: string
+      enum: [draft, open, partially_received, fully_received, closed, cancelled]
+      description: |
+        Seuls `open`, `partially_received` et `fully_received` acceptent de
+        nouveaux bons de livraison et de nouvelles factures.
+
+    PurchaseOrderLine:
+      type: object
+      properties:
+        id: { type: integer }
+        line_number: { type: integer, example: 1 }
+        item_code: { type: string, example: CIM-42 }
+        description: { type: string }
+        unit: { type: string, example: sac }
+        quantity_ordered: { type: number, format: double, example: 400 }
+        unit_price: { type: number, format: double, example: 8.9 }
+        ordered_amount: { type: number, format: double, example: 3560 }
+
+    PurchaseOrder:
+      type: object
+      properties:
+        id: { type: integer }
+        reference: { type: string, example: PO-2026-0001 }
+        status: { $ref: "#/components/schemas/PurchaseOrderStatus" }
+        status_label: { type: string, example: Ouvert }
+        currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: Devise du bon de commande, reference contractuelle de comparaison des prix.
+        ordered_at: { type: string, format: date }
+        notes: { type: string, nullable: true }
+        supplier: { $ref: "#/components/schemas/Supplier" }
+        project: { $ref: "#/components/schemas/Project" }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/PurchaseOrderLine" }
+        total_amount: { type: number, format: double }
+        lines_count: { type: integer }
+        delivery_notes_count: { type: integer }
+        invoices_count: { type: integer }
+        created_at: { type: string, format: date-time, nullable: true }
+
+    PurchaseOrderInput:
+      type: object
+      required: [reference, supplier_id, project_id, ordered_at, lines]
+      properties:
+        reference: { type: string, maxLength: 100, example: PO-2026-0001 }
+        supplier_id: { type: integer }
+        project_id: { type: integer }
+        currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          default: EUR
+        ordered_at: { type: string, format: date }
+        notes: { type: string, maxLength: 2000, nullable: true }
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [item_code, description, unit, quantity_ordered, unit_price]
+            properties:
+              item_code: { type: string, maxLength: 100 }
+              description: { type: string, maxLength: 255 }
+              unit: { type: string, maxLength: 16, example: sac }
+              quantity_ordered: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
+              unit_price: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
+
+    DeliveryNoteStatus:
+      type: string
+      enum: [draft, accepted, rejected]
+      description: |
+        Seul `accepted` compte comme marchandise reçue et ouvre un droit à
+        paiement. C'est la parade principale contre les livraisons fictives.
+
+    DeliveryNoteLine:
+      type: object
+      properties:
+        id: { type: integer }
+        purchase_order_line_id: { type: integer }
+        quantity_received: { type: number, format: double }
+        purchase_order_line:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            line_number: { type: integer }
+            item_code: { type: string }
+            description: { type: string }
+            unit: { type: string }
+            quantity_ordered: { type: number, format: double }
+
+    DeliveryNote:
+      type: object
+      properties:
+        id: { type: integer }
+        reference: { type: string, example: BL-2026-0001 }
+        status: { $ref: "#/components/schemas/DeliveryNoteStatus" }
+        status_label: { type: string }
+        counts_as_received:
+          type: boolean
+          description: Vrai uniquement si le bon est accepté.
+        received_at: { type: string, format: date }
+        notes: { type: string, nullable: true }
+        purchase_order_id: { type: integer }
+        supplier: { $ref: "#/components/schemas/Supplier" }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/DeliveryNoteLine" }
+        lines_count: { type: integer }
+        created_at: { type: string, format: date-time, nullable: true }
+
+    DeliveryNoteInput:
+      type: object
+      required: [reference, purchase_order_id, received_at, lines]
+      properties:
+        reference: { type: string, maxLength: 100, example: BL-2026-0001 }
+        purchase_order_id: { type: integer }
+        received_at: { type: string, format: date }
+        notes: { type: string, maxLength: 2000, nullable: true }
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [purchase_order_line_id, quantity_received]
+            properties:
+              purchase_order_line_id: { type: integer }
+              quantity_received: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
+
+    InvoiceStatus:
+      type: string
+      enum: [received, under_review, partially_approved, approved, disputed, cancelled]
+      description: |
+        Dérivé du dernier rapprochement : `approved` (tout rapproché),
+        `partially_approved` (portion payable), `under_review` (écart à
+        arbitrer), `received` (rien de rapproché), `disputed` (arbitrage
+        défavorable — plus de rapprochement automatique), `cancelled`.
+
+    InvoiceLine:
+      type: object
+      properties:
+        id: { type: integer }
+        line_number: { type: integer }
+        description: { type: string }
+        quantity: { type: number, format: double }
+        unit_price: { type: number, format: double }
+        invoiced_amount: { type: number, format: double }
+        purchase_order_line_id:
+          type: integer
+          nullable: true
+          description: "`null` = ligne hors commande, systématiquement signalée."
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: integer }
+        reference: { type: string, example: FAC-2026-0001 }
+        status: { $ref: "#/components/schemas/InvoiceStatus" }
+        status_label: { type: string }
+        currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: |
+            Devise de facturation, et devise du reglement. Elle peut differer
+            de celle du bon de commande : le rapprochement convertit alors au
+            taux en vigueur a la date de la facture.
+        invoice_date: { type: string, format: date }
+        due_date: { type: string, format: date, nullable: true }
+        total_amount:
+          type: number
+          format: double
+          description: Recalculé depuis les lignes, jamais fourni par l'appelant.
+        supplier: { $ref: "#/components/schemas/Supplier" }
+        purchase_order_id: { type: integer }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceLine" }
+        lines_count: { type: integer }
+        open_exceptions_count: { type: integer }
+        latest_match_run:
+          oneOf:
+            - $ref: "#/components/schemas/MatchRun"
+            - type: "null"
+        payment_authorization:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentAuthorization"
+            - type: "null"
+        created_at: { type: string, format: date-time, nullable: true }
+
+    InvoiceInput:
+      type: object
+      required: [reference, purchase_order_id, invoice_date, lines]
+      properties:
+        reference: { type: string, maxLength: 100, example: FAC-2026-0001 }
+        purchase_order_id: { type: integer }
+        currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: |
+            Par defaut, celle du bon de commande. La renseigner permet de
+            facturer dans une autre devise ; un taux doit alors exister pour
+            la date de facture, faute de quoi le rapprochement est bloque et
+            signale (`missing_exchange_rate`).
+        invoice_date: { type: string, format: date }
+        due_date: { type: string, format: date, nullable: true }
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [description, quantity, unit_price]
+            properties:
+              purchase_order_line_id:
+                type: integer
+                nullable: true
+                description: Laisser `null` produit un écart `missing_purchase_order_line`.
+              description: { type: string, maxLength: 255 }
+              quantity: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
+              unit_price: { type: number, format: double, minimum: 0 }
+
+    MatchStatus:
+      type: string
+      enum: [matched, partially_matched, unmatched, exception]
+      description: |
+        `unmatched` est un état normal et transitoire (marchandise pas encore
+        arrivée). `exception` signifie qu'un écart attend une décision humaine.
+
+    ActorType:
+      type: string
+      enum: [system, user]
+      description: |
+        `system` : décision du moteur, sans intervention.
+        `user` : rapprochement déclenché ou arbitré par un utilisateur nommé.
+
+    MatchLineResult:
+      type: object
+      properties:
+        id: { type: integer }
+        invoice_line_id: { type: integer }
+        purchase_order_line_id: { type: integer, nullable: true }
+        status: { $ref: "#/components/schemas/MatchStatus" }
+        status_label: { type: string }
+        quantity_invoiced: { type: number, format: double }
+        quantity_matched:
+          type: number
+          format: double
+          description: Portion payable — min(commandé, reçu) − déjà rapproché ailleurs.
+        quantity_unmatched: { type: number, format: double }
+        unit_price_invoiced: { type: number, format: double }
+        unit_price_ordered: { type: number, format: double, nullable: true }
+        price_variance_ratio:
+          type: number
+          format: double
+          nullable: true
+          description: Écart relatif de prix (0.2 = +20 %).
+        matched_amount: { type: number, format: double }
+        evidence:
+          type: object
+          additionalProperties: true
+          description: |
+            Preuve chiffrée archivée : quantités commandée / reçue / déjà
+            rapprochée, quantité disponible, seuils appliqués, prix comparés,
+            dérogations retenues. Permet d'expliquer la décision des mois plus
+            tard, même après évolution du bon de commande.
+          example:
+            quantity_ordered: 100
+            quantity_received: 60
+            quantity_already_matched: 20
+            quantity_available_for_matching: 40
+            unit_price_ordered: 10
+            unit_price_invoiced: 10
+            price_tolerance_threshold: 0.5
+            price_within_tolerance: true
+
+    MatchRun:
+      type: object
+      description: Exécution immuable du moteur — la réponse à « qui, quand, sur quelles données ».
+      properties:
+        id: { type: integer }
+        invoice_id: { type: integer }
+        status: { $ref: "#/components/schemas/MatchStatus" }
+        status_label: { type: string }
+        decided_by:
+          type: object
+          properties:
+            actor_type: { $ref: "#/components/schemas/ActorType" }
+            actor_id: { type: integer, nullable: true }
+            label: { type: string, example: "Moteur de rapprochement v1.0.0" }
+        trigger:
+          type: string
+          enum: [invoice_submitted, manual, delivery_accepted, exception_reviewed]
+          description: Événement à l'origine de l'exécution.
+        engine_version: { type: string, example: "1.0.0" }
+        currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: Devise de la facture — celle des montants ci-dessous et du règlement.
+        base_currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: Devise de référence, utilisée pour l'agrégation.
+        base_matched_amount:
+          type: number
+          format: double
+          description: Montant autorisé, converti en devise de référence.
+        base_unmatched_amount: { type: number, format: double }
+        exchange_rate_snapshot:
+          type: object
+          nullable: true
+          description: |
+            Taux appliqués, figés avec la décision. Un montant converti sans son
+            taux est invérifiable : ce bloc permet de rejouer le calcul à
+            l'identique des mois plus tard.
+          properties:
+            invoice_currency: { $ref: "#/components/schemas/Currency" }
+            comparison_currency: { $ref: "#/components/schemas/Currency" }
+            base_currency: { $ref: "#/components/schemas/Currency" }
+            invoice_to_comparison: { $ref: "#/components/schemas/ExchangeRate" }
+            invoice_to_base: { $ref: "#/components/schemas/ExchangeRate" }
+            base_to_comparison: { $ref: "#/components/schemas/ExchangeRate" }
+        tolerance_snapshot:
+          type: object
+          description: Copie figée des seuils appliqués, pour pouvoir rejouer la décision.
+          properties:
+            price_ratio: { type: number, format: double, example: 0.01 }
+            price_absolute: { type: number, format: double, example: 0.5 }
+            quantity_ratio: { type: number, format: double, example: 0 }
+            quantity_absolute: { type: number, format: double, example: 0 }
+            currency:
+              allOf:
+                - $ref: "#/components/schemas/Currency"
+              description: |
+                Devise dans laquelle le seuil absolu a réellement été appliqué.
+                Le seuil est configuré en devise de référence puis converti dans
+                la devise du bon de commande : 0,50 a un sens en euro, aucun en
+                franc CFA.
+        evaluated_at: { type: string, format: date-time }
+        invoiced_amount: { type: number, format: double }
+        matched_amount:
+          type: number
+          format: double
+          description: Montant autorisable au paiement.
+        unmatched_amount: { type: number, format: double }
+        exception_count: { type: integer }
+        line_results:
+          type: array
+          items: { $ref: "#/components/schemas/MatchLineResult" }
+        exceptions:
+          type: array
+          items: { $ref: "#/components/schemas/MatchException" }
+        created_at: { type: string, format: date-time, nullable: true }
+
+    DiscrepancyType:
+      type: string
+      enum:
+        - price_variance
+        - quantity_over_ordered
+        - quantity_over_delivered
+        - missing_purchase_order_line
+        - supplier_mismatch
+        - missing_exchange_rate
+        - purchase_order_not_open
+      description: |
+        Seuls `price_variance` et `quantity_over_ordered` sont dérogeables : un
+        fournisseur erroné ne se « valide » pas, la facture doit être corrigée.
+
+        `missing_exchange_rate` signale une facture libellée dans une autre
+        devise que son bon de commande **sans taux de change connu** à la date
+        de facture. Le système ne devine jamais un taux : inventer un taux
+        reviendrait à inventer le montant qu'on s'apprête à autoriser.
+
+    Currency:
+      type: string
+      enum: [EUR, USD, XOF]
+      description: |
+        Devises supportées. Attention au nombre de décimales : l'euro et le
+        dollar en ont deux, le **franc CFA n'en a aucune** (pas de sous-unité).
+        Un montant XOF est toujours un entier ; l'afficher avec des centimes
+        serait faux.
+
+        Le franc CFA est arrimé à l'euro à une parité **fixe et réglementaire**
+        (1 EUR = 655,957 XOF), et non à un taux de marché.
+
+    ExchangeRateSource:
+      type: string
+      enum: [fixed_peg, manual, provider]
+      description: |
+        Provenance du taux appliqué : parité fixe réglementaire, saisie
+        manuelle, ou fournisseur de cotations. Tracée parce qu'elle n'engage pas
+        la même confiance.
+
+    ExchangeRate:
+      type: object
+      description: Taux appliqué lors d'une conversion, archivé avec la décision.
+      properties:
+        from: { $ref: "#/components/schemas/Currency" }
+        to: { $ref: "#/components/schemas/Currency" }
+        rate:
+          type: number
+          format: double
+          description: "Multiplicateur : montant_en_`to` = montant_en_`from` × rate."
+          example: 655.957
+        source: { $ref: "#/components/schemas/ExchangeRateSource" }
+        effective_from:
+          type: string
+          format: date
+          nullable: true
+          description: Date d'effet du taux retenu.
+
+    DiscrepancySeverity:
+      type: string
+      enum: [low, medium, high, critical]
+
+    ReviewStatus:
+      type: string
+      enum: [open, approved, rejected]
+
+    MatchException:
+      type: object
+      properties:
+        id: { type: integer }
+        match_run_id: { type: integer }
+        invoice_id: { type: integer }
+        invoice_line_id:
+          type: integer
+          nullable: true
+          description: "`null` pour un écart portant sur la facture entière."
+        type: { $ref: "#/components/schemas/DiscrepancyType" }
+        type_label: { type: string, example: Écart de prix }
+        severity: { $ref: "#/components/schemas/DiscrepancySeverity" }
+        is_overridable:
+          type: boolean
+          description: Un avis favorable peut-il débloquer le paiement de la ligne ?
+        message:
+          type: string
+          example: "Ligne 1 : prix unitaire facturé 612 contre 540 au bon de commande (écart 72, tolérance 5,4)."
+        context:
+          type: object
+          additionalProperties: true
+          description: Chiffres de l'écart, pour arbitrer sans rouvrir les trois documents.
+        review_status: { $ref: "#/components/schemas/ReviewStatus" }
+        review_status_label: { type: string }
+        review_note: { type: string, nullable: true }
+        reviewed_at: { type: string, format: date-time, nullable: true }
+        reviewed_by:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        created_at: { type: string, format: date-time, nullable: true }
+
+    PaymentAuthorizationStatus:
+      type: string
+      enum: [active, superseded, revoked]
+      description: |
+        `superseded` : remplacée par un rapprochement plus récent. Une
+        autorisation n'est jamais supprimée.
+
+    PaymentAuthorization:
+      type: object
+      properties:
+        id: { type: integer }
+        invoice_id: { type: integer }
+        match_run_id:
+          type: integer
+          description: Exécution dont l'autorisation est issue — toute autorisation est traçable jusqu'à sa décision.
+        amount:
+          type: number
+          format: double
+          description: Montant autorisé, dans la devise de facturation — celle du règlement.
+        currency: { $ref: "#/components/schemas/Currency" }
+        base_amount:
+          type: number
+          format: double
+          description: Contre-valeur en devise de référence, pour le pilotage et la comptabilité.
+        base_currency: { $ref: "#/components/schemas/Currency" }
+        exchange_rate:
+          type: number
+          format: double
+          description: Taux facture → devise de référence retenu par le rapprochement.
+        status: { $ref: "#/components/schemas/PaymentAuthorizationStatus" }
+        status_label: { type: string }
+        authorized_at: { type: string, format: date-time }
+        is_settled:
+          type: boolean
+          description: Le reglement est un fait qui s'ajoute a l'autorisation, pas un statut qui la remplace.
+        settled_at: { type: string, format: date-time, nullable: true }
+        payment_reference: { type: string, nullable: true }
+        payment_method: { type: string, nullable: true }
+        settled_by:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+
+    DashboardSummary:
+      type: object
+      properties:
+        invoices:
+          type: object
+          additionalProperties: { type: integer }
+          description: Nombre de factures par statut, tous statuts présents même à zéro.
+        exceptions:
+          type: object
+          properties:
+            open: { type: integer }
+            by_type:
+              type: object
+              additionalProperties: { type: integer }
+            by_severity:
+              type: object
+              additionalProperties: { type: integer }
+        amounts:
+          type: object
+          description: |
+            Les cumuls sont exprimés en devise de référence : additionner des
+            euros, des dollars et des francs CFA ne produirait aucun chiffre
+            sensé. La ventilation par devise de règlement reste disponible dans
+            `by_currency`.
+          properties:
+            authorized_for_payment: { type: number, format: double }
+            blocked: { type: number, format: double }
+            currency: { $ref: "#/components/schemas/Currency" }
+            by_currency:
+              type: array
+              description: Montants autorisés par devise de règlement effective.
+              items:
+                type: object
+                properties:
+                  currency: { $ref: "#/components/schemas/Currency" }
+                  amount:
+                    type: number
+                    format: double
+                    description: Montant dans la devise de règlement.
+                  base_amount:
+                    type: number
+                    format: double
+                    description: Contre-valeur en devise de référence.

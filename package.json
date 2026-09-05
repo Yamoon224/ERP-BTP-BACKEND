@@ -1,0 +1,11 @@
+{
+    "name": "erp-btp-backend-assets",
+    "private": true,
+    "description": "Assets statiques du backend : Swagger UI pour la page de documentation.",
+    "scripts": {
+        "docs:assets": "node -e \"const f=require('fs');f.mkdirSync('public/vendor/swagger-ui',{recursive:true});for(const n of ['swagger-ui.css','swagger-ui-bundle.js'])f.copyFileSync('node_modules/swagger-ui-dist/'+n,'public/vendor/swagger-ui/'+n);console.log('Swagger UI assets copies.')\""
+    },
+    "dependencies": {
+        "swagger-ui-dist": "5.17.14"
+    }
+}

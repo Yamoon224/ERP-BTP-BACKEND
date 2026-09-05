@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database
+        - routes
+        - tests
+
+    # Niveau 6 : types de parametres et de retour exiges partout, contenu des
+    # tableaux documente. Au-dela, Larastan bute surtout sur le typage dynamique
+    # d'Eloquent, pour un gain reel faible sur ce projet.
+    level: 6

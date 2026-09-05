@@ -1,0 +1,127 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "erp-btp/backend",
+    "type": "project",
+    "description": "API du moteur de rapprochement a 3 voies (PO / BL / facture) d'un ERP BTP.",
+    "keywords": [
+        "erp",
+        "btp",
+        "three-way-matching",
+        "laravel"
+    ],
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^13.17",
+        "laravel/sanctum": "^4.3",
+        "laravel/tinker": "^3.0",
+        "spatie/laravel-activitylog": "^4.12",
+        "spatie/laravel-permission": "^8.3",
+        "symfony/yaml": "^7.4"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.11",
+        "laravel/pail": "^1.2.5",
+        "laravel/pao": "^1.0.6",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^12.5.12"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "@php artisan db:seed --force"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan dev"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "docs:assets": [
+            "npm install --no-audit --no-fund",
+            "@php -r \"@mkdir('public/vendor/swagger-ui', 0755, true); copy('node_modules/swagger-ui-dist/swagger-ui.css', 'public/vendor/swagger-ui/swagger-ui.css'); copy('node_modules/swagger-ui-dist/swagger-ui-bundle.js', 'public/vendor/swagger-ui/swagger-ui-bundle.js');\""
+        ],
+        "lint": [
+            "vendor/bin/pint --test"
+        ],
+        "format": [
+            "vendor/bin/pint"
+        ],
+        "analyse": [
+            "vendor/bin/phpstan analyse --no-progress --memory-limit=1G"
+        ],
+        "test:unit": [
+            "@php artisan test --testsuite=Unit"
+        ],
+        "test:feature": [
+            "@php artisan test --testsuite=Feature"
+        ],
+        "check": [
+            "@lint",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts-descriptions": {
+        "setup": "Installation complete : dependances, .env, cle, migrations, jeu de demonstration.",
+        "docs:assets": "Recopie les assets Swagger UI dans public/vendor/swagger-ui.",
+        "lint": "Verifie le formatage (Pint) sans rien modifier.",
+        "format": "Applique le formatage Pint.",
+        "analyse": "Analyse statique PHPStan/Larastan niveau 6.",
+        "test": "Suite complete : tests unitaires et d'integration.",
+        "check": "Porte de sortie avant livraison : lint + analyse statique + tests."
+    }
+}
