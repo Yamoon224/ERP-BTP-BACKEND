@@ -19,4 +19,9 @@ interface ProjectRepositoryContract
 
     /** @param  array<string, mixed>  $attributes */
     public function update(Project $project, array $attributes): Project;
+
+    public function delete(Project $project): void;
+
+    /** Nombre de bons de commande portes par le chantier. */
+    public function countPurchaseOrders(Project $project): int;
 }

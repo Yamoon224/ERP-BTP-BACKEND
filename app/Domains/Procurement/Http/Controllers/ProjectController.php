@@ -9,6 +9,7 @@ use App\Domains\Procurement\Services\ProjectService;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -39,5 +40,12 @@ class ProjectController extends Controller
     public function update(UpdateProjectRequest $request, Project $project): ProjectResource
     {
         return new ProjectResource($this->projectService->update($project, $request->validated()));
+    }
+
+    public function destroy(Project $project): Response
+    {
+        $this->projectService->delete($project);
+
+        return response()->noContent();
     }
 }

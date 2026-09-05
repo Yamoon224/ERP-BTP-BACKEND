@@ -53,4 +53,14 @@ final class EloquentSupplierRepository implements SupplierRepositoryContract
 
         return $supplier->refresh();
     }
+
+    public function delete(Supplier $supplier): void
+    {
+        $supplier->delete();
+    }
+
+    public function countDocuments(Supplier $supplier): int
+    {
+        return $supplier->purchaseOrders()->count() + $supplier->invoices()->count();
+    }
 }

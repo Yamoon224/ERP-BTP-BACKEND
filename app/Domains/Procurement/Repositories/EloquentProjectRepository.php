@@ -54,4 +54,14 @@ final class EloquentProjectRepository implements ProjectRepositoryContract
 
         return $project->refresh();
     }
+
+    public function delete(Project $project): void
+    {
+        $project->delete();
+    }
+
+    public function countPurchaseOrders(Project $project): int
+    {
+        return $project->purchaseOrders()->count();
+    }
 }

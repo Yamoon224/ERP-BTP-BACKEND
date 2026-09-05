@@ -9,6 +9,7 @@ use App\Domains\Procurement\Services\SupplierService;
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -39,5 +40,12 @@ class SupplierController extends Controller
     public function update(UpdateSupplierRequest $request, Supplier $supplier): SupplierResource
     {
         return new SupplierResource($this->supplierService->update($supplier, $request->validated()));
+    }
+
+    public function destroy(Supplier $supplier): Response
+    {
+        $this->supplierService->delete($supplier);
+
+        return response()->noContent();
     }
 }

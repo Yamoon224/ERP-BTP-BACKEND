@@ -3,6 +3,7 @@
 namespace App\Domains\Procurement\Services;
 
 use App\Domains\Procurement\Contracts\ProjectRepositoryContract;
+use App\Domains\Procurement\Exceptions\ProjectInUseException;
 use App\Models\Project;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
@@ -33,5 +34,21 @@ final class ProjectService
     public function update(Project $project, array $data): Project
     {
         return $this->projects->update($project, $data);
+    }
+
+    /**
+     * Supprime un chantier sur lequel rien n'a encore ete engage.
+     *
+     * @throws ProjectInUseException
+     */
+    public function delete(Project $project): void
+    {
+        $purchaseOrders = $this->projects->countPurchaseOrders($project);
+
+        if ($purchaseOrders > 0) {
+            throw ProjectInUseException::make($project->name, $purchaseOrders);
+        }
+
+        $this->projects->delete($project);
     }
 }
