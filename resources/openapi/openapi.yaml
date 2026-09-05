@@ -76,6 +76,10 @@ tags:
     description: File de revue humaine des écarts détectés.
   - name: Paiements
     description: Autorisations de paiement, et constat de leur règlement.
+  - name: Devises
+    description: Référentiel des devises et historique des taux de change.
+  - name: Audit
+    description: Journal d'activité, en lecture seule.
   - name: Comptes
     description: Compte de l'utilisateur courant et administration des utilisateurs.
   - name: Supervision
@@ -451,6 +455,28 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Référentiel]
+      summary: Supprimer un fournisseur
+      description: |
+        Permission requise : `procurement.manage`.
+
+        Refusé dès qu'un bon de commande ou une facture cite la fiche : le
+        référentiel est ce qui rend une décision archivée relisible, et une
+        facture rapprochée dont l'émetteur a disparu n'est plus explicable. Le
+        geste attendu dans ce cas est la **désactivation** (`is_active: false`),
+        qui retire le fournisseur des listes de saisie sans toucher à
+        l'historique.
+      responses:
+        "204": { description: Fournisseur supprimé. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Fournisseur rattaché à des documents (`supplier_in_use`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /projects:
     get:
@@ -545,6 +571,25 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Référentiel]
+      summary: Supprimer un chantier
+      description: |
+        Permission requise : `procurement.manage`.
+
+        Refusé dès qu'un bon de commande porte le chantier : les montants
+        agrégés par chantier perdraient leur référent. La désactivation joue le
+        même rôle sans casser l'historique.
+      responses:
+        "204": { description: Chantier supprimé. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Chantier déjà engagé (`project_in_use`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /purchase-orders:
     get:
@@ -907,6 +952,82 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /invoices/{invoice}/pdf:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+    get:
+      tags: [Factures]
+      summary: Exporter la facture en PDF
+      description: |
+        Permission requise : `invoicing.view`.
+
+        Le document porte la facture **et** le verdict de son rapprochement :
+        montant autorisé au paiement, montant non couvert, nombre d'écarts
+        ouverts. Une facture imprimée sans son contrôle ne dit pas si elle est
+        payable — or c'est la question que se pose celui qui l'imprime.
+
+        Le fichier est produit à la volée, jamais stocké : il est intégralement
+        dérivé de l'état courant, et l'archiver ferait exister deux vérités dont
+        l'une vieillirait dès le prochain rapprochement.
+      responses:
+        "200":
+          description: Document PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /invoices/{invoice}/currency:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceId"
+    patch:
+      tags: [Factures]
+      summary: Changer la devise de règlement
+      description: |
+        Permission requise : `invoicing.manage`.
+
+        La devise n'est pas un détail d'affichage : c'est l'unité dans laquelle
+        le prix facturé est confronté au prix commandé, et donc celle du montant
+        autorisé au paiement. Le changement **rejoue donc le rapprochement** et
+        produit une nouvelle exécution — la réponse porte déjà le nouveau
+        verdict.
+
+        Les montants des lignes ne sont pas convertis : corriger la devise
+        corrige la façon dont la facture a été lue, pas ce que le fournisseur a
+        écrit dessus.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency]
+              properties:
+                currency: { $ref: "#/components/schemas/Currency" }
+      responses:
+        "200":
+          description: Facture rechargée, nouvelle exécution comprise.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Invoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            Facture annulée ou déjà réglée
+            (`invoice_currency_not_changeable`) : corriger la devise après le
+            virement réécrirait le sens d'un paiement déjà exécuté.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /invoices/{invoice}/match-runs:
     parameters:
@@ -1274,6 +1395,361 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /match-runs:
+    get:
+      tags: [Rapprochement]
+      summary: Registre global des rapprochements
+      description: |
+        Permission requise : `matching.view`.
+
+        Toutes les exécutions du moteur, toutes factures confondues, de la plus
+        récente à la plus ancienne. Il n'existe **aucune** opération d'écriture
+        sur cette ressource : une exécution est immuable. Corriger un
+        rapprochement se fait en le rejouant
+        (`POST /invoices/{invoice}/match-runs`), ce qui produit une nouvelle
+        exécution sans effacer la précédente.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: invoice_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+          description: Restreint aux exécutions d'une facture.
+        - name: supplier_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+          description: Restreint aux exécutions des factures d'un fournisseur.
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/MatchStatus" }
+        - name: trigger
+          in: query
+          schema: { $ref: "#/components/schemas/MatchTrigger" }
+        - name: actor_type
+          in: query
+          schema: { $ref: "#/components/schemas/ActorType" }
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Direction"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée d'exécutions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/MatchRun" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /match-runs/{matchRun}:
+    parameters:
+      - name: matchRun
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant de l'exécution.
+    get:
+      tags: [Rapprochement]
+      summary: Consulter une exécution
+      description: |
+        Permission requise : `matching.view`.
+
+        Sert l'exécution complète : résultat ligne à ligne, preuve chiffrée
+        (`evidence`), tolérances et taux figés au moment de la décision.
+      responses:
+        "200":
+          description: Exécution du moteur.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/MatchRun" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /currencies:
+    get:
+      tags: [Devises]
+      summary: Référentiel des devises
+      description: |
+        Permission requise : `currencies.view`.
+
+        Devises supportées, leur nombre de décimales, la devise par défaut des
+        documents et la devise d'agrégation du pilotage. Servi par l'API plutôt
+        que recopié côté client : le nombre de décimales n'est pas cosmétique,
+        et deux arrondis divergents afficheraient deux montants différents pour
+        la même autorisation de paiement.
+      responses:
+        "200":
+          description: Référentiel.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/CurrencyReference" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /exchange-rates:
+    get:
+      tags: [Devises]
+      summary: Lister les taux de change
+      description: |
+        Permission requise : `currencies.view`.
+
+        Seul le sens `base → quote` est stocké ; l'inverse et la triangulation
+        (USD → XOF par l'euro) sont calculés. Deux lignes symétriques qui
+        divergeraient d'un millième produiraient des rapprochements différents
+        selon le sens de lecture.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: base_currency
+          in: query
+          schema: { $ref: "#/components/schemas/Currency" }
+        - name: quote_currency
+          in: query
+          schema: { $ref: "#/components/schemas/Currency" }
+        - name: source
+          in: query
+          schema: { $ref: "#/components/schemas/ExchangeRateSource" }
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Direction"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée de taux.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/ExchangeRateQuote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Devises]
+      summary: Enregistrer un taux
+      description: |
+        Permission requise : `currencies.manage`.
+
+        Un taux vaut à partir de sa date d'effet. Publier le cours du jour se
+        fait en **ajoutant** une ligne, jamais en modifiant la précédente :
+        c'est la superposition des dates d'effet qui permet de rejouer à
+        l'identique un rapprochement ancien. La source `fixed_peg` est refusée
+        en saisie — une parité réglementaire n'est pas une cotation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExchangeRateInput" }
+      responses:
+        "201":
+          description: Taux enregistré.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ExchangeRateQuote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /exchange-rates/{exchangeRate}:
+    parameters:
+      - name: exchangeRate
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant du taux.
+    get:
+      tags: [Devises]
+      summary: Consulter un taux
+      description: "Permission requise : `currencies.view`."
+      responses:
+        "200":
+          description: Taux de change.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ExchangeRateQuote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Devises]
+      summary: Corriger un taux
+      description: |
+        Permission requise : `currencies.manage`.
+
+        Corrige une saisie fautive. La paire n'est pas modifiable : changer la
+        devise d'une ligne existante réécrirait l'historique d'une *autre*
+        paire.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExchangeRateUpdateInput" }
+      responses:
+        "200":
+          description: Taux mis à jour.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ExchangeRateQuote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            Parité fixe réglementaire (`fixed_peg_not_editable`) : la laisser
+            réécrire par une saisie humaine fausserait silencieusement tous les
+            rapprochements passés qui s'y réfèrent.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Devises]
+      summary: Supprimer un taux
+      description: "Permission requise : `currencies.manage`."
+      responses:
+        "204": { description: Taux supprimé. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Parité fixe réglementaire (`fixed_peg_not_editable`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /audit-logs:
+    get:
+      tags: [Audit]
+      summary: Journal d'audit
+      description: |
+        Permission requise : `audit.view`.
+
+        Qui a changé quoi, quand, sur quel objet. **Lecture seule sans
+        exception** — il n'existe ni création, ni modification, ni purge par
+        l'API, y compris pour un administrateur : un journal que l'on peut
+        éditer n'atteste de rien.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: event
+          in: query
+          schema: { type: string, example: updated }
+          description: "Type d'évènement : `created`, `updated`, `deleted`."
+        - name: subject_type
+          in: query
+          schema: { type: string, example: 'App\Models\Invoice' }
+          description: Classe de l'objet concerné.
+        - name: subject_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: causer_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+          description: Auteur du changement. Absent pour une décision du moteur.
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Direction"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Collection paginée d'entrées de journal.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/AuditLog" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /audit-logs/facets:
+    get:
+      tags: [Audit]
+      summary: Valeurs disponibles pour les filtres du journal
+      description: |
+        Permission requise : `audit.view`.
+
+        Calculées sur les données réelles plutôt que codées en dur : la liste
+        des types d'objets journalisés dépend de ce qui a effectivement été
+        modifié.
+      responses:
+        "200":
+          description: Facettes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      subject_types:
+                        type: array
+                        items: { type: string }
+                      events:
+                        type: array
+                        items: { type: string }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /audit-logs/{auditLog}:
+    parameters:
+      - name: auditLog
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+        description: Identifiant de l'entrée de journal.
+    get:
+      tags: [Audit]
+      summary: Consulter une entrée du journal
+      description: "Permission requise : `audit.view`."
+      responses:
+        "200":
+          description: Entrée de journal.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AuditLog" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1292,7 +1768,7 @@ components:
     PerPage:
       name: per_page
       in: query
-      schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
       description: Taille de page.
     Search:
       name: search
@@ -1347,6 +1823,133 @@ components:
           schema: { $ref: "#/components/schemas/ValidationError" }
 
   schemas:
+    MatchTrigger:
+      type: string
+      enum: [invoice_submitted, manual, delivery_accepted, exception_reviewed, currency_changed]
+      description: |
+        Évènement à l'origine d'une exécution du moteur. `currency_changed`
+        apparaît quand la devise de règlement d'une facture a été corrigée : les
+        prix ne se comparent plus dans la même unité, le montant autorisé est
+        donc recalculé.
+
+    CurrencyReference:
+      type: object
+      description: Référentiel des devises manipulées par le circuit achats.
+      properties:
+        currencies:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { $ref: "#/components/schemas/Currency" }
+              label: { type: string, example: "Franc CFA (BCEAO)" }
+              symbol: { type: string, example: "F CFA" }
+              decimals:
+                type: integer
+                example: 0
+                description: |
+                  Nombre de décimales réelles de la devise (ISO 4217). Zéro pour
+                  le franc CFA, qui n'a pas de sous-unité : afficher des centimes
+                  inventerait une précision qui n'existe pas.
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              value: { $ref: "#/components/schemas/ExchangeRateSource" }
+              label: { type: string, example: "Parité fixe" }
+              expires:
+                type: boolean
+                description: Une parité fixe ne se périme pas ; un taux de marché, si.
+        default_currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: Devise proposée aux documents créés sans devise explicite.
+        base_currency:
+          allOf:
+            - $ref: "#/components/schemas/Currency"
+          description: Devise d'agrégation du pilotage et des seuils absolus.
+
+    ExchangeRateQuote:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        base_currency: { $ref: "#/components/schemas/Currency" }
+        quote_currency: { $ref: "#/components/schemas/Currency" }
+        rate:
+          type: number
+          format: double
+          example: 655.957
+          description: "Multiplicateur : montant_en_quote = montant_en_base x rate."
+        source: { $ref: "#/components/schemas/ExchangeRateSource" }
+        source_label: { type: string, example: "Parité fixe" }
+        is_editable:
+          type: boolean
+          description: |
+            Faux pour une parité fixe réglementaire. Servi pour que l'interface
+            désactive ses commandes plutôt que d'attendre un 409.
+        effective_from:
+          type: string
+          format: date
+          description: Date à partir de laquelle le taux s'applique.
+        created_at: { type: string, format: date-time, nullable: true }
+
+    ExchangeRateInput:
+      type: object
+      required: [base_currency, quote_currency, rate, source, effective_from]
+      properties:
+        base_currency: { $ref: "#/components/schemas/Currency" }
+        quote_currency: { $ref: "#/components/schemas/Currency" }
+        rate: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
+        source:
+          type: string
+          enum: [manual, provider]
+          description: "`fixed_peg` est exclu : une parité réglementaire ne se saisit pas."
+        effective_from: { type: string, format: date }
+
+    ExchangeRateUpdateInput:
+      type: object
+      description: La paire n'est pas modifiable — seule la cotation l'est.
+      properties:
+        rate: { type: number, format: double, exclusiveMinimum: true, minimum: 0 }
+        source: { type: string, enum: [manual, provider] }
+        effective_from: { type: string, format: date }
+
+    AuditLog:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        log_name: { type: string, nullable: true, example: default }
+        description: { type: string, example: updated }
+        event: { type: string, nullable: true, example: updated }
+        event_label: { type: string, example: Modification }
+        subject_type:
+          type: string
+          nullable: true
+          example: 'App\Models\Invoice'
+        subject_label:
+          type: string
+          example: Facture
+          description: Libellé métier du type d'objet, pour l'affichage.
+        subject_id: { type: integer, nullable: true }
+        causer:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        causer_label:
+          type: string
+          example: Systeme
+          description: |
+            Nom de l'auteur, ou « Systeme » quand le changement vient du moteur
+            et non d'une personne.
+        properties:
+          type: object
+          description: |
+            État avant (`old`) et après (`attributes`) le changement, tel que le
+            journal l'a archivé.
+        created_at: { type: string, format: date-time, nullable: true }
     Error:
       type: object
       required: [message, error_code]
@@ -1838,8 +2441,8 @@ components:
             actor_id: { type: integer, nullable: true }
             label: { type: string, example: "Moteur de rapprochement v1.0.0" }
         trigger:
-          type: string
-          enum: [invoice_submitted, manual, delivery_accepted, exception_reviewed]
+          allOf:
+            - $ref: "#/components/schemas/MatchTrigger"
           description: Événement à l'origine de l'exécution.
         engine_version: { type: string, example: "1.0.0" }
         currency:
