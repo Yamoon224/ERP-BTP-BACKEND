@@ -38,6 +38,7 @@ final class EloquentInvoiceRepository implements InvoiceRepositoryContract
             ->when($filters['supplier_id'] ?? null, fn ($query, $id) => $query->where('supplier_id', $id))
             ->when($filters['purchase_order_id'] ?? null, fn ($query, $id) => $query->where('purchase_order_id', $id))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['currency'] ?? null, fn ($query, $currency) => $query->where('currency', $currency))
             ->addSelect(['sort_supplier' => Supplier::select('name')->whereColumn('suppliers.id', 'invoices.supplier_id')])
             ->tap(fn ($query) => Sort::apply($query, $filters, self::SORTABLE, 'id', 'desc'))
             ->paginate($perPage)
@@ -85,6 +86,13 @@ final class EloquentInvoiceRepository implements InvoiceRepositoryContract
     public function updateStatus(Invoice $invoice, InvoiceStatus $status): Invoice
     {
         $invoice->update(['status' => $status]);
+
+        return $invoice->refresh();
+    }
+
+    public function updateAttributes(Invoice $invoice, array $attributes): Invoice
+    {
+        $invoice->update($attributes);
 
         return $invoice->refresh();
     }

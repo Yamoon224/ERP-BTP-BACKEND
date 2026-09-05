@@ -26,5 +26,16 @@ interface InvoiceRepositoryContract
 
     public function updateStatus(Invoice $invoice, InvoiceStatus $status): Invoice;
 
+    /**
+     * Corrige des attributs d'en-tete de la facture (devise, echeance…).
+     *
+     * Volontairement distinct de `updateStatus` : le statut est derive du
+     * moteur, ces attributs-la viennent d'une saisie humaine, et les deux ne
+     * doivent pas pouvoir se confondre a l'appel.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function updateAttributes(Invoice $invoice, array $attributes): Invoice;
+
     public function existsForSupplierReference(int $supplierId, string $reference): bool;
 }

@@ -36,6 +36,15 @@ class RolesAndPermissionsSeeder extends Seeder
         // pouvoir la confier sans tout donner.
         'users.view',
         'users.manage',
+        // Referentiel des devises et des taux. Consulter un taux est banal ;
+        // en saisir un ne l'est pas : un taux manuel deplace directement le
+        // montant autorise au paiement, la ou le rapprochement ne fait que le
+        // constater. Les deux permissions sont donc distinctes.
+        'currencies.view',
+        'currencies.manage',
+        // Journal d'audit. En lecture seule pour tout le monde, y compris
+        // l'administrateur : personne ne peut effacer une trace.
+        'audit.view',
     ];
 
     /** @var array<string, list<string>> */
@@ -51,6 +60,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'receiving.view',
             'invoicing.view',
             'matching.view',
+            'currencies.view',
         ],
 
         // Magasinier : réceptionne et contrôle la marchandise. Ne voit ni prix
@@ -72,6 +82,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'matching.run',
             'payments.view',
             'payments.manage',
+            // Le comptable fournisseurs saisit les cotations du jour : c'est
+            // son metier de savoir a quel taux une facture en devise se regle.
+            'currencies.view',
+            'currencies.manage',
+            'audit.view',
         ],
 
         // Contrôleur financier : seul habilité à arbitrer un écart, donc seul
@@ -84,6 +99,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'matching.run',
             'matching.review',
             'payments.view',
+            'currencies.view',
+            // Le controleur arbitre les ecarts : il doit pouvoir remonter la
+            // chaine des modifications qui les ont produits.
+            'audit.view',
         ],
     ];
 

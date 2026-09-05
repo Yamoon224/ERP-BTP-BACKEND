@@ -119,7 +119,7 @@ class Invoice extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['reference', 'supplier_id', 'purchase_order_id', 'status', 'total_amount'])
+            ->logOnly(['reference', 'supplier_id', 'purchase_order_id', 'currency', 'status', 'total_amount'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

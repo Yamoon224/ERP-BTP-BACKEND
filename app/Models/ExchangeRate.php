@@ -8,6 +8,8 @@ use Database\Factories\ExchangeRateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * @property int $id
@@ -22,7 +24,7 @@ use Illuminate\Support\Carbon;
 class ExchangeRate extends Model
 {
     /** @use HasFactory<ExchangeRateFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = ['base_currency', 'quote_currency', 'rate', 'source', 'effective_from'];
 
@@ -35,5 +37,17 @@ class ExchangeRate extends Model
             'effective_from' => 'date',
             'rate' => 'decimal:10',
         ];
+    }
+
+    /**
+     * Un taux saisi a la main influence directement le montant autorise au
+     * paiement : sa modification doit laisser une trace nominative.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['base_currency', 'quote_currency', 'rate', 'source', 'effective_from'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

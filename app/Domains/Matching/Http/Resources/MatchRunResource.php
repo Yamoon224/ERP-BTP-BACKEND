@@ -48,6 +48,18 @@ class MatchRunResource extends JsonResource
             'base_unmatched_amount' => (float) $this->base_unmatched_amount,
             'exception_count' => $this->exception_count,
 
+            // Contexte facture : dans le registre global, une execution sans
+            // sa facture ne dit rien de ce qu'elle a decide.
+            'invoice' => $this->whenLoaded('invoice', fn (): array => [
+                'id' => $this->invoice->id,
+                'reference' => $this->invoice->reference,
+                'status' => $this->invoice->status->value,
+                'currency' => $this->invoice->currency->value,
+                'supplier' => $this->invoice->relationLoaded('supplier') && $this->invoice->supplier !== null
+                    ? ['id' => $this->invoice->supplier->id, 'name' => $this->invoice->supplier->name]
+                    : null,
+            ]),
+
             'line_results' => MatchLineResultResource::collection($this->whenLoaded('lineResults')),
             'exceptions' => MatchExceptionResource::collection($this->whenLoaded('exceptions')),
             'payment_authorization' => $this->whenLoaded(

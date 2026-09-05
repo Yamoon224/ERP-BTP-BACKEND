@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domains\Audit\Contracts\AuditLogRepositoryContract;
+use App\Domains\Audit\Repositories\EloquentAuditLogRepository;
 use App\Domains\Invoicing\Contracts\InvoiceRepositoryContract;
 use App\Domains\Invoicing\Repositories\EloquentInvoiceRepository;
 use App\Domains\Matching\Contracts\ApprovedOverrideReaderContract;
@@ -33,8 +35,10 @@ use App\Domains\Receiving\Contracts\DeliveryNoteRepositoryContract;
 use App\Domains\Receiving\Repositories\EloquentDeliveryNoteRepository;
 use App\Domains\Receiving\Repositories\EloquentReceivedQuantityReader;
 use App\Domains\Shared\Contracts\ExchangeRateProviderContract;
+use App\Domains\Shared\Contracts\ExchangeRateRepositoryContract;
 use App\Domains\Shared\Enums\Currency;
 use App\Domains\Shared\Repositories\DatabaseExchangeRateProvider;
+use App\Domains\Shared\Repositories\EloquentExchangeRateRepository;
 use App\Domains\Shared\Services\CurrencyConverter;
 use App\Domains\Users\Contracts\UserRepositoryContract;
 use App\Domains\Users\Repositories\EloquentUserRepository;
@@ -77,6 +81,14 @@ class DomainServiceProvider extends ServiceProvider
 
         // Resolution des taux de change, historisee en base.
         ExchangeRateProviderContract::class => DatabaseExchangeRateProvider::class,
+
+        // Administration du referentiel de taux — separee de la resolution :
+        // le moteur lit, l'ecran d'administration ecrit, et aucun des deux ne
+        // peut passer par la porte de l'autre.
+        ExchangeRateRepositoryContract::class => EloquentExchangeRateRepository::class,
+
+        // Journal d'audit, en lecture seule.
+        AuditLogRepositoryContract::class => EloquentAuditLogRepository::class,
     ];
 
     public function register(): void

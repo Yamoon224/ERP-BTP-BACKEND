@@ -25,4 +25,16 @@ interface MatchRunRepositoryContract
      * @return LengthAwarePaginator<int, MatchRun>
      */
     public function paginateForInvoice(int $invoiceId, array $filters = [], int $perPage = 10): LengthAwarePaginator;
+
+    /**
+     * Toutes les executions, toutes factures confondues.
+     *
+     * C'est la vue « registre » : elle repond a « qu'a decide le moteur cette
+     * semaine, et qui a rejoue quoi », question qu'on ne peut pas poser facture
+     * par facture.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, MatchRun>
+     */
+    public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator;
 }

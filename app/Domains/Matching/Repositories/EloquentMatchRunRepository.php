@@ -8,6 +8,7 @@ use App\Domains\Matching\DTOs\LineOutcome;
 use App\Domains\Matching\DTOs\MatchOutcome;
 use App\Domains\Matching\Enums\ActorType;
 use App\Domains\Matching\Enums\ReviewStatus;
+use App\Domains\Shared\Support\Sort;
 use App\Models\Invoice;
 use App\Models\MatchLineResult;
 use App\Models\MatchRun;
@@ -24,6 +25,17 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
  */
 final class EloquentMatchRunRepository implements MatchRunRepositoryContract
 {
+    /** @var array<string, string> */
+    private const SORTABLE = [
+        'id' => 'id',
+        'status' => 'status',
+        'trigger' => 'trigger',
+        'evaluated_at' => 'evaluated_at',
+        'matched_amount' => 'matched_amount',
+        'unmatched_amount' => 'unmatched_amount',
+        'exceptions' => 'exception_count',
+    ];
+
     public function record(Invoice $invoice, MatchOutcome $outcome, ?User $actor, string $trigger): MatchRun
     {
         $matchRun = MatchRun::create([
@@ -65,6 +77,8 @@ final class EloquentMatchRunRepository implements MatchRunRepositoryContract
     {
         return MatchRun::with([
             'actor',
+            'invoice.supplier',
+            'invoice.purchaseOrder',
             'lineResults.invoiceLine',
             'lineResults.purchaseOrderLine',
             'exceptions.reviewer',
@@ -89,6 +103,34 @@ final class EloquentMatchRunRepository implements MatchRunRepositoryContract
             ->where('invoice_id', $invoiceId)
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->latest('id')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    /** @return LengthAwarePaginator<int, MatchRun> */
+    public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator
+    {
+        return MatchRun::query()
+            ->with(['actor', 'invoice.supplier', 'paymentAuthorization'])
+            ->withCount(['lineResults', 'exceptions'])
+            ->when($filters['invoice_id'] ?? null, fn ($query, $id) => $query->where('invoice_id', $id))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['trigger'] ?? null, fn ($query, $trigger) => $query->where('trigger', $trigger))
+            ->when(
+                $filters['actor_type'] ?? null,
+                fn ($query, $actorType) => $query->where('actor_type', $actorType),
+            )
+            ->when($filters['search'] ?? null, fn ($query, $search) => $query->whereHas(
+                'invoice',
+                fn ($invoice) => $invoice->where('reference', 'like', "%{$search}%"),
+            ))
+            ->when($filters['supplier_id'] ?? null, fn ($query, $id) => $query->whereHas(
+                'invoice',
+                fn ($invoice) => $invoice->where('supplier_id', $id),
+            ))
+            // Toujours du plus recent au plus ancien : la derniere execution
+            // d'une facture est celle qui fait foi, elle doit venir en premier.
+            ->tap(fn ($query) => Sort::apply($query, $filters, self::SORTABLE, 'id', 'desc'))
             ->paginate($perPage)
             ->withQueryString();
     }

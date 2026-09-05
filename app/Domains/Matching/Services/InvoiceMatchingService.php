@@ -34,6 +34,12 @@ final class InvoiceMatchingService
 
     public const TRIGGER_EXCEPTION_REVIEWED = 'exception_reviewed';
 
+    /**
+     * Changement de devise de reglement. Rejouer est obligatoire : les prix ne
+     * se comparent plus dans la meme unite, donc le montant autorise change.
+     */
+    public const TRIGGER_CURRENCY_CHANGED = 'currency_changed';
+
     public function __construct(
         private readonly MatchInputAssembler $assembler,
         private readonly MatchingEngineContract $engine,

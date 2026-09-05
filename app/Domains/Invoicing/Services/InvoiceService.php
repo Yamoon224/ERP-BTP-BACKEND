@@ -5,12 +5,14 @@ namespace App\Domains\Invoicing\Services;
 use App\Domains\Invoicing\Contracts\InvoiceRepositoryContract;
 use App\Domains\Invoicing\Enums\InvoiceStatus;
 use App\Domains\Invoicing\Exceptions\DuplicateInvoiceException;
+use App\Domains\Invoicing\Exceptions\InvoiceCurrencyNotChangeableException;
 use App\Domains\Invoicing\Exceptions\InvoiceLineNotOnPurchaseOrderException;
 use App\Domains\Invoicing\Exceptions\InvoiceNotEditableException;
 use App\Domains\Matching\Services\InvoiceMatchingService;
 use App\Domains\Payments\Contracts\PaymentAuthorizationRepositoryContract;
 use App\Domains\Procurement\Contracts\PurchaseOrderRepositoryContract;
 use App\Domains\Procurement\Exceptions\PurchaseOrderNotOpenException;
+use App\Domains\Shared\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\PurchaseOrder;
 use App\Models\User;
@@ -83,6 +85,53 @@ final class InvoiceService
             ], $this->numberLines($data['lines']));
 
             $this->matchingService->match($invoice, null, InvoiceMatchingService::TRIGGER_INVOICE_SUBMITTED);
+
+            return $this->invoices->findOrFail($invoice->id);
+        });
+    }
+
+    /**
+     * Change la devise de reglement d'une facture, puis rejoue le contrôle.
+     *
+     * Le rapprochement n'est pas une consequence optionnelle du changement :
+     * c'est lui qui donne son sens a la nouvelle devise. Tant qu'il n'a pas
+     * tourne, le montant autorise au paiement resterait exprime dans l'ancienne
+     * unite — un chiffre juste dans la mauvaise monnaie, ce qui est pire qu'un
+     * chiffre absent.
+     *
+     * Les montants des lignes ne sont **pas** convertis : changer la devise
+     * corrige la facon dont la facture a ete lue, pas ce que le fournisseur a
+     * ecrit dessus. Convertir silencieusement reviendrait a fabriquer des
+     * montants que personne n'a jamais factures.
+     *
+     * @throws InvoiceCurrencyNotChangeableException
+     */
+    public function changeCurrency(Invoice $invoice, string $currency, ?User $actor = null): Invoice
+    {
+        if ($invoice->status === InvoiceStatus::Cancelled) {
+            throw InvoiceCurrencyNotChangeableException::becauseCancelled($invoice->reference);
+        }
+
+        $authorization = $this->authorizations->activeForInvoice($invoice->id);
+
+        if ($authorization?->settled_at !== null) {
+            throw InvoiceCurrencyNotChangeableException::becauseSettled($invoice->reference);
+        }
+
+        $target = Currency::from(strtoupper($currency));
+
+        if ($invoice->currency === $target) {
+            return $this->invoices->findOrFail($invoice->id);
+        }
+
+        return DB::transaction(function () use ($invoice, $target, $actor): Invoice {
+            $updated = $this->invoices->updateAttributes($invoice, ['currency' => $target]);
+
+            $this->matchingService->match(
+                $updated,
+                $actor,
+                InvoiceMatchingService::TRIGGER_CURRENCY_CHANGED,
+            );
 
             return $this->invoices->findOrFail($invoice->id);
         });
